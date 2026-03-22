@@ -73,27 +73,28 @@ def parse_accounts(config: dict) -> list[dict]:
                 "imap_port": int(os.environ.get("IMAP_PORT", "993")),
                 "imap_username": os.environ["IMAP_USERNAME"],
                 "imap_password": os.environ["IMAP_PASSWORD"],
-                "smtp_host": os.environ["SMTP_HOST"],
+                "smtp_host": os.environ.get("SMTP_HOST", imap_host),
                 "smtp_port": int(os.environ.get("SMTP_PORT", "587")),
-                "smtp_username": os.environ["SMTP_USERNAME"],
-                "smtp_password": os.environ["SMTP_PASSWORD"],
+                "smtp_username": os.environ.get(
+                    "SMTP_USERNAME", os.environ["IMAP_USERNAME"]
+                ),
+                "smtp_password": os.environ.get(
+                    "SMTP_PASSWORD", os.environ["IMAP_PASSWORD"]
+                ),
                 "watch_folders": ["INBOX"],
             }
         ]
 
-    required = (
-        "imap_host",
-        "imap_username",
-        "imap_password",
-        "smtp_host",
-        "smtp_username",
-        "smtp_password",
-    )
+    required = ("imap_host", "imap_username", "imap_password")
     for i, acc in enumerate(accounts):
         acc.setdefault("id", f"account-{i}")
         acc.setdefault("imap_port", 993)
-        acc.setdefault("smtp_port", 587)
         acc.setdefault("watch_folders", ["INBOX"])
+        # SMTP falls back to IMAP if not specified
+        acc.setdefault("smtp_host", acc.get("imap_host"))
+        acc.setdefault("smtp_port", 587)
+        acc.setdefault("smtp_username", acc.get("imap_username"))
+        acc.setdefault("smtp_password", acc.get("imap_password"))
         for field in required:
             if field not in acc:
                 raise RuntimeError(

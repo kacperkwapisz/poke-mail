@@ -2,20 +2,30 @@
 # Copy this file to config.yml and fill in your credentials
 
 webhook_url: "https://poke.com/api/v1/inbound-sms/webhook"
-poke_api_key: "your-api-key-here"  # from https://poke.com/settings/advanced
+poke_api_key: "your-api-key-here"
 
 # MCP_API_KEY is set via environment variable (not in this file)
 # It secures the MCP server so only you can use it
 
 accounts:
-  - id: default
+  # Minimal — SMTP falls back to IMAP host/credentials
+  - id: personal
     imap_host: imap.gmail.com
     imap_port: 993
     imap_username: "you@gmail.com"
     imap_password: "your-app-password"
-    smtp_host: smtp.gmail.com
-    smtp_port: 587
-    smtp_username: "you@gmail.com"
-    smtp_password: "your-app-password"
     watch_folders:
       - INBOX
+
+  # Full — separate SMTP settings (only if different from IMAP)
+  # - id: work
+  #   imap_host: imap.example.com
+  #   imap_port: 993
+  #   imap_username: "you@example.com"
+  #   imap_password: "imap-password"
+  #   smtp_host: smtp.example.com
+  #   smtp_port: 587
+  #   smtp_username: "you@example.com"
+  #   smtp_password: "smtp-password"
+  #   watch_folders:
+  #     - INBOX

@@ -262,6 +262,17 @@ async def forward_to_poke(email_data: dict, webhook_url: str, api_key: str) -> b
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
+    else:
+        logger.warning(
+            "No Poke API key configured — webhook request will be unauthenticated"
+        )
+
+    logger.debug(
+        "Forwarding to %s (api_key set: %s, key prefix: %s)",
+        webhook_url,
+        bool(api_key),
+        api_key[:8] + "..." if api_key and len(api_key) > 8 else "***",
+    )
 
     for attempt in range(2):
         try:

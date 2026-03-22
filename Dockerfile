@@ -17,9 +17,11 @@ COPY src/ src/
 RUN adduser --disabled-password --no-create-home appuser
 USER appuser
 
-EXPOSE 8000
+EXPOSE 3000
+
+ENV PORT=3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import httpx; httpx.get('http://localhost:8000/mcp', timeout=5)" || exit 1
+    CMD python -c "import httpx; httpx.get('http://localhost:3000/mcp', timeout=5)" || exit 1
 
 CMD ["python", "src/server.py"]

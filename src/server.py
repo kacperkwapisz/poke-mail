@@ -842,7 +842,7 @@ async def get_server_info(ctx: Context) -> dict:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
+    port = int(os.environ.get("PORT", 3000))
     host = "0.0.0.0"
     logger.info("Starting poke-mail on %s:%d", host, port)
     mcp.run(transport="http", host=host, port=port, stateless_http=True)

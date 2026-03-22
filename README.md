@@ -58,7 +58,7 @@ MCP_API_KEY=your-secret-key python src/server.py
 npx @modelcontextprotocol/inspector
 ```
 
-Open http://localhost:3000 and connect to `http://localhost:8000/mcp` using "Streamable HTTP" transport. Pass `Authorization: Bearer your-secret-key` header.
+Open http://localhost:3000 and connect to `http://localhost:3000/mcp` using "Streamable HTTP" transport. Pass `Authorization: Bearer your-secret-key` header.
 
 ## Authentication
 
@@ -74,7 +74,7 @@ When connecting from Poke, add the bearer token in your connection settings.
 docker build -t poke-mail .
 
 docker run -d \
-  -p 8000:8000 \
+  -p 3000:3000 \
   -v $(pwd)/config.yml:/app/config.yml:ro \
   -e MCP_API_KEY=your-secret-key \
   poke-mail
@@ -84,7 +84,7 @@ Or use the pre-built image from GitHub Container Registry:
 
 ```bash
 docker run -d \
-  -p 8000:8000 \
+  -p 3000:3000 \
   -v $(pwd)/config.yml:/app/config.yml:ro \
   -e MCP_API_KEY=your-secret-key \
   ghcr.io/OWNER/poke-mail:main
@@ -114,7 +114,7 @@ docker run -d \
 | `CONFIG_PATH` | `config.yml` | Path to config file |
 | `POKE_WEBHOOK_URL` | from config | Overrides webhook URL in config |
 | `POKE_API_KEY` | from config | Overrides Poke API key in config |
-| `PORT` | `8000` | HTTP server port |
+| `PORT` | `3000` | HTTP server port |
 
 ## Deployment
 

@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import asyncio
-import json
 import logging
 import os
 import smtplib
 import ssl
 from contextlib import asynccontextmanager
-from datetime import date, datetime
+from datetime import date
 from email import policy
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -29,6 +28,7 @@ logger = logging.getLogger("poke-mail")
 # Auth — simple bearer token verification
 # ---------------------------------------------------------------------------
 
+
 class ApiKeyAuth(TokenVerifier):
     """Validates incoming requests against a static API key (MCP_API_KEY)."""
 
@@ -41,9 +41,11 @@ class ApiKeyAuth(TokenVerifier):
             return AccessToken(token=token, client_id="owner", scopes=["all"])
         return None
 
+
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
+
 
 def load_config() -> dict:
     path = os.environ.get("CONFIG_PATH", "config.yml")
@@ -79,7 +81,14 @@ def parse_accounts(config: dict) -> list[dict]:
             }
         ]
 
-    required = ("imap_host", "imap_username", "imap_password", "smtp_host", "smtp_username", "smtp_password")
+    required = (
+        "imap_host",
+        "imap_username",
+        "imap_password",
+        "smtp_host",
+        "smtp_username",
+        "smtp_password",
+    )
     for i, acc in enumerate(accounts):
         acc.setdefault("id", f"account-{i}")
         acc.setdefault("imap_port", 993)
@@ -87,7 +96,9 @@ def parse_accounts(config: dict) -> list[dict]:
         acc.setdefault("watch_folders", ["INBOX"])
         for field in required:
             if field not in acc:
-                raise RuntimeError(f"Account '{acc['id']}' missing required field: {field}")
+                raise RuntimeError(
+                    f"Account '{acc['id']}' missing required field: {field}"
+                )
     return accounts
 
 
@@ -97,12 +108,15 @@ def resolve_account(accounts: list[dict], account_id: Optional[str] = None) -> d
     for acc in accounts:
         if acc["id"] == account_id:
             return acc
-    raise ValueError(f"Unknown account_id: {account_id}. Available: {[a['id'] for a in accounts]}")
+    raise ValueError(
+        f"Unknown account_id: {account_id}. Available: {[a['id'] for a in accounts]}"
+    )
 
 
 # ---------------------------------------------------------------------------
 # IMAP helpers
 # ---------------------------------------------------------------------------
+
 
 def get_imap_client(account: dict) -> IMAPClient:
     port = account["imap_port"]
@@ -128,14 +142,16 @@ def parse_email_message(raw: bytes) -> dict:
             if "attachment" in cd:
                 try:
                     content = part.get_content()
-                    size = len(content) if hasattr(content, '__len__') else 0
+                    size = len(content) if hasattr(content, "__len__") else 0
                 except Exception:
                     size = 0
-                attachments.append({
-                    "filename": part.get_filename() or "unnamed",
-                    "content_type": ct,
-                    "size": size,
-                })
+                attachments.append(
+                    {
+                        "filename": part.get_filename() or "unnamed",
+                        "content_type": ct,
+                        "size": size,
+                    }
+                )
             elif ct == "text/plain" and not body_text:
                 try:
                     body_text = part.get_content()
@@ -216,6 +232,7 @@ def detect_archive_folder(client: IMAPClient) -> str:
 # Poke webhook
 # ---------------------------------------------------------------------------
 
+
 async def forward_to_poke(email_data: dict, webhook_url: str, api_key: str) -> bool:
     payload = {
         "from": email_data["from"],
@@ -236,7 +253,11 @@ async def forward_to_poke(email_data: dict, webhook_url: str, api_key: str) -> b
             async with httpx.AsyncClient(timeout=30) as http:
                 resp = await http.post(webhook_url, json=payload, headers=headers)
                 resp.raise_for_status()
-                logger.info("Forwarded email '%s' to Poke (status %d)", email_data["subject"], resp.status_code)
+                logger.info(
+                    "Forwarded email '%s' to Poke (status %d)",
+                    email_data["subject"],
+                    resp.status_code,
+                )
                 return True
         except Exception as e:
             logger.warning("Forward attempt %d failed: %s", attempt + 1, e)
@@ -249,7 +270,14 @@ async def forward_to_poke(email_data: dict, webhook_url: str, api_key: str) -> b
 # IDLE watcher
 # ---------------------------------------------------------------------------
 
-async def watch_folder(account: dict, folder: str, webhook_url: str, api_key: str, stop_event: asyncio.Event):
+
+async def watch_folder(
+    account: dict,
+    folder: str,
+    webhook_url: str,
+    api_key: str,
+    stop_event: asyncio.Event,
+):
     backoff = 5
     max_backoff = 60
 
@@ -261,11 +289,19 @@ async def watch_folder(account: dict, folder: str, webhook_url: str, api_key: st
 
             # Check IDLE support
             if not client.has_capability("IDLE"):
-                logger.warning("[%s/%s] Server does not support IDLE, falling back to polling", account["id"], folder)
-                await _poll_folder(client, account, folder, webhook_url, api_key, stop_event)
+                logger.warning(
+                    "[%s/%s] Server does not support IDLE, falling back to polling",
+                    account["id"],
+                    folder,
+                )
+                await _poll_folder(
+                    client, account, folder, webhook_url, api_key, stop_event
+                )
                 return
 
-            logger.info("[%s/%s] Watching for new emails via IDLE", account["id"], folder)
+            logger.info(
+                "[%s/%s] Watching for new emails via IDLE", account["id"], folder
+            )
             backoff = 5
 
             while not stop_event.is_set():
@@ -304,7 +340,13 @@ async def watch_folder(account: dict, folder: str, webhook_url: str, api_key: st
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.error("[%s/%s] Watcher error: %s (reconnecting in %ds)", account["id"], folder, e, backoff)
+            logger.error(
+                "[%s/%s] Watcher error: %s (reconnecting in %ds)",
+                account["id"],
+                folder,
+                e,
+                backoff,
+            )
             await asyncio.sleep(backoff)
             backoff = min(backoff * 2, max_backoff)
         finally:
@@ -315,7 +357,14 @@ async def watch_folder(account: dict, folder: str, webhook_url: str, api_key: st
                     pass
 
 
-async def _poll_folder(client: IMAPClient, account: dict, folder: str, webhook_url: str, api_key: str, stop_event: asyncio.Event):
+async def _poll_folder(
+    client: IMAPClient,
+    account: dict,
+    folder: str,
+    webhook_url: str,
+    api_key: str,
+    stop_event: asyncio.Event,
+):
     """Fallback polling for servers without IDLE support. Checks every 60 seconds."""
     logger.info("[%s/%s] Polling for new emails every 60s", account["id"], folder)
     while not stop_event.is_set():
@@ -336,11 +385,17 @@ async def _poll_folder(client: IMAPClient, account: dict, folder: str, webhook_u
         await asyncio.sleep(60)
 
 
-async def idle_watcher(accounts: list[dict], webhook_url: str, api_key: str, stop_event: asyncio.Event):
+async def idle_watcher(
+    accounts: list[dict], webhook_url: str, api_key: str, stop_event: asyncio.Event
+):
     tasks = []
     for acc in accounts:
         for folder in acc.get("watch_folders", ["INBOX"]):
-            tasks.append(asyncio.create_task(watch_folder(acc, folder, webhook_url, api_key, stop_event)))
+            tasks.append(
+                asyncio.create_task(
+                    watch_folder(acc, folder, webhook_url, api_key, stop_event)
+                )
+            )
     if tasks:
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -349,19 +404,30 @@ async def idle_watcher(accounts: list[dict], webhook_url: str, api_key: str, sto
 # Lifespan
 # ---------------------------------------------------------------------------
 
+
 @asynccontextmanager
 async def lifespan(server: FastMCP):
     config = load_config()
     accounts = parse_accounts(config)
-    webhook_url = os.environ.get("POKE_WEBHOOK_URL", config.get("webhook_url", "https://poke.com/api/v1/inbound-sms/webhook"))
+    webhook_url = os.environ.get(
+        "POKE_WEBHOOK_URL",
+        config.get("webhook_url", "https://poke.com/api/v1/inbound-sms/webhook"),
+    )
     api_key = os.environ.get("POKE_API_KEY", config.get("poke_api_key", ""))
     stop_event = asyncio.Event()
 
-    watcher_task = asyncio.create_task(idle_watcher(accounts, webhook_url, api_key, stop_event))
+    watcher_task = asyncio.create_task(
+        idle_watcher(accounts, webhook_url, api_key, stop_event)
+    )
     logger.info("poke-mail started with %d account(s)", len(accounts))
 
     try:
-        yield {"accounts": accounts, "webhook_url": webhook_url, "api_key": api_key, "config": config}
+        yield {
+            "accounts": accounts,
+            "webhook_url": webhook_url,
+            "api_key": api_key,
+            "config": config,
+        }
     finally:
         stop_event.set()
         watcher_task.cancel()
@@ -379,12 +445,16 @@ async def lifespan(server: FastMCP):
 mcp_api_key = os.environ.get("MCP_API_KEY", "")
 auth = ApiKeyAuth(mcp_api_key) if mcp_api_key else None
 if not mcp_api_key:
-    logger.warning("MCP_API_KEY not set — server is unauthenticated. Set MCP_API_KEY to secure it.")
+    logger.warning(
+        "MCP_API_KEY not set — server is unauthenticated. Set MCP_API_KEY to secure it."
+    )
 
 mcp = FastMCP("poke-mail", lifespan=lifespan, auth=auth)
 
 
-@mcp.tool(description="Search emails by criteria. Returns a list of matching emails with metadata.")
+@mcp.tool(
+    description="Search emails by criteria. Returns a list of matching emails with metadata."
+)
 async def search_emails(
     ctx: Context,
     folder: str = "INBOX",
@@ -414,15 +484,22 @@ async def search_emails(
                 env = msg_data.get(b"ENVELOPE")
                 if not env:
                     continue
-                results.append({
-                    "uid": uid,
-                    "from": str(env.from_[0]) if env.from_ else "",
-                    "to": [str(a) for a in (env.to or [])],
-                    "subject": env.subject.decode(errors="replace") if env.subject else "",
-                    "date": str(env.date) if env.date else "",
-                    "flags": [f.decode(errors="replace") for f in msg_data.get(b"FLAGS", [])],
-                    "size": msg_data.get(b"RFC822.SIZE", 0),
-                })
+                results.append(
+                    {
+                        "uid": uid,
+                        "from": str(env.from_[0]) if env.from_ else "",
+                        "to": [str(a) for a in (env.to or [])],
+                        "subject": env.subject.decode(errors="replace")
+                        if env.subject
+                        else "",
+                        "date": str(env.date) if env.date else "",
+                        "flags": [
+                            f.decode(errors="replace")
+                            for f in msg_data.get(b"FLAGS", [])
+                        ],
+                        "size": msg_data.get(b"RFC822.SIZE", 0),
+                    }
+                )
             return results
         finally:
             client.logout()
@@ -430,7 +507,9 @@ async def search_emails(
     return await asyncio.to_thread(_search)
 
 
-@mcp.tool(description="Read a specific email by UID. Returns full email content including body and attachment metadata.")
+@mcp.tool(
+    description="Read a specific email by UID. Returns full email content including body and attachment metadata."
+)
 async def read_email(
     ctx: Context,
     uid: int,
@@ -454,7 +533,9 @@ async def read_email(
     return await asyncio.to_thread(_read)
 
 
-@mcp.tool(description="Send an email via SMTP. Supports plain text and HTML, CC/BCC, and reply threading.")
+@mcp.tool(
+    description="Send an email via SMTP. Supports plain text and HTML, CC/BCC, and reply threading."
+)
 async def send_email(
     ctx: Context,
     to: str,
@@ -529,7 +610,9 @@ async def send_email(
     return await asyncio.to_thread(_send)
 
 
-@mcp.tool(description="Archive an email by moving it to the Archive folder instead of deleting.")
+@mcp.tool(
+    description="Archive an email by moving it to the Archive folder instead of deleting."
+)
 async def archive_email(
     ctx: Context,
     uid: int,
@@ -600,7 +683,9 @@ async def mark_email(
         "unflagged": (b"\\Flagged", "remove"),
     }
     if action not in flag_map:
-        return {"error": f"Invalid action: {action}. Use: read, unread, flagged, unflagged"}
+        return {
+            "error": f"Invalid action: {action}. Use: read, unread, flagged, unflagged"
+        }
 
     flag, op = flag_map[action]
 
@@ -686,13 +771,23 @@ async def rename_folder(
     return await asyncio.to_thread(_rename)
 
 
-@mcp.tool(description="Delete an IMAP folder. Refuses to delete INBOX or system folders.")
+@mcp.tool(
+    description="Delete an IMAP folder. Refuses to delete INBOX or system folders."
+)
 async def delete_folder(
     ctx: Context,
     name: str,
     account_id: Optional[str] = None,
 ) -> dict:
-    protected = {"INBOX", "[Gmail]", "[Gmail]/All Mail", "[Gmail]/Trash", "[Gmail]/Spam", "[Gmail]/Drafts", "[Gmail]/Sent Mail"}
+    protected = {
+        "INBOX",
+        "[Gmail]",
+        "[Gmail]/All Mail",
+        "[Gmail]/Trash",
+        "[Gmail]/Spam",
+        "[Gmail]/Drafts",
+        "[Gmail]/Sent Mail",
+    }
     if name in protected:
         return {"error": f"Cannot delete protected folder: {name}"}
 
@@ -724,13 +819,15 @@ async def get_server_info(ctx: Context) -> dict:
             status = "connected"
         except Exception as e:
             status = f"error: {e}"
-        account_info.append({
-            "id": acc["id"],
-            "imap_host": acc["imap_host"],
-            "smtp_host": acc["smtp_host"],
-            "watch_folders": acc.get("watch_folders", []),
-            "status": status,
-        })
+        account_info.append(
+            {
+                "id": acc["id"],
+                "imap_host": acc["imap_host"],
+                "smtp_host": acc["smtp_host"],
+                "watch_folders": acc.get("watch_folders", []),
+                "status": status,
+            }
+        )
 
     return {
         "server_name": "poke-mail",

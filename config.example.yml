@@ -1,0 +1,21 @@
+# poke-mail configuration
+# Copy this file to config.yml and fill in your credentials
+
+webhook_url: https://poke.com/api/v1/inbound-sms/webhook
+poke_api_key: your-api-key-here  # from https://poke.com/settings/advanced
+
+# MCP_API_KEY is set via environment variable (not in this file)
+# It secures the MCP server so only you can use it
+
+accounts:
+  - id: default
+    imap_host: imap.gmail.com
+    imap_port: 993
+    imap_username: you@gmail.com
+    imap_password: your-app-password
+    smtp_host: smtp.gmail.com
+    smtp_port: 587
+    smtp_username: you@gmail.com
+    smtp_password: your-app-password
+    watch_folders:
+      - INBOX

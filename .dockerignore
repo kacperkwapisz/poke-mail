@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+__pycache__
+*.pyc
+config.yml
+.env
+.gitignore
+README.md
+render.yaml
+config.example.yml
+.claude

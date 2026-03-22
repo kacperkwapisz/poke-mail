@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: poke-mail
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python src/server.py
+    plan: free
+    autoDeploy: false
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: CONFIG_PATH
+        value: config.yml
+      - key: MCP_API_KEY
+        sync: false
+      - key: POKE_WEBHOOK_URL
+        sync: false
+      - key: POKE_API_KEY
+        sync: false

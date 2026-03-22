@@ -485,11 +485,27 @@ async def search_emails(
                 env = msg_data.get(b"ENVELOPE")
                 if not env:
                     continue
+
+                def _fmt_addr(addr):
+                    """Format an IMAP envelope address safely."""
+                    try:
+                        name = addr.name.decode(errors="replace") if addr.name else ""
+                        mailbox = (
+                            addr.mailbox.decode(errors="replace")
+                            if addr.mailbox
+                            else ""
+                        )
+                        host = addr.host.decode(errors="replace") if addr.host else ""
+                        email = f"{mailbox}@{host}" if mailbox else ""
+                        return f"{name} <{email}>" if name else email
+                    except Exception:
+                        return str(addr)
+
                 results.append(
                     {
                         "uid": uid,
-                        "from": str(env.from_[0]) if env.from_ else "",
-                        "to": [str(a) for a in (env.to or [])],
+                        "from": _fmt_addr(env.from_[0]) if env.from_ else "",
+                        "to": [_fmt_addr(a) for a in (env.to or [])],
                         "subject": env.subject.decode(errors="replace")
                         if env.subject
                         else "",

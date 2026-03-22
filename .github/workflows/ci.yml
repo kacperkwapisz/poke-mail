@@ -28,7 +28,7 @@ jobs:
           cache: pip
       - run: pip install -r requirements.txt
       - name: Verify imports
-        run: python -c "from src.server import mcp; print(f'OK: {mcp.name}')"
+        run: python -c "from src.server import mcp; print('OK:', mcp.name)"
 
   docker:
     runs-on: ubuntu-latest

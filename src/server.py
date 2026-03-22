@@ -22,6 +22,7 @@ from fastmcp.server.auth import TokenVerifier, AccessToken
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("poke-mail")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 # ---------------------------------------------------------------------------
@@ -325,8 +326,13 @@ async def watch_folder(
                 )
                 return
 
+            # Record existing unseen UIDs so we only forward truly new ones
+            existing_unseen = set(await asyncio.to_thread(client.search, ["UNSEEN"]))
             logger.info(
-                "[%s/%s] Watching for new emails via IDLE", account["id"], folder
+                "[%s/%s] Watching for new emails via IDLE (%d existing unseen skipped)",
+                account["id"],
+                folder,
+                len(existing_unseen),
             )
             backoff = 5
 
@@ -350,10 +356,14 @@ async def watch_folder(
                     continue
 
                 uids = await asyncio.to_thread(client.search, ["UNSEEN"])
-                if not uids:
+                # Only forward emails that arrived after we started watching
+                new_uids = [u for u in uids if u not in existing_unseen]
+                if not new_uids:
                     continue
 
-                raw_messages = await asyncio.to_thread(client.fetch, uids, ["RFC822"])
+                raw_messages = await asyncio.to_thread(
+                    client.fetch, new_uids, ["RFC822"]
+                )
                 for uid, data in raw_messages.items():
                     raw = data.get(b"RFC822", b"")
                     if not raw:
@@ -361,7 +371,7 @@ async def watch_folder(
                     email_data = parse_email_message(raw)
                     await forward_to_poke(email_data, webhook_url, api_key)
 
-                await asyncio.to_thread(client.set_flags, uids, [b"\\Seen"])
+                await asyncio.to_thread(client.set_flags, new_uids, [b"\\Seen"])
 
         except asyncio.CancelledError:
             break

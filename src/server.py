@@ -85,6 +85,7 @@ def parse_accounts(config: dict) -> list[dict]:
             }
         ]
 
+    global_allow_send = config.get("allow_send", True)
     required = ("imap_host", "imap_username", "imap_password")
     for i, acc in enumerate(accounts):
         acc.setdefault("id", f"account-{i}")
@@ -95,6 +96,7 @@ def parse_accounts(config: dict) -> list[dict]:
         acc.setdefault("smtp_port", 587)
         acc.setdefault("smtp_username", acc.get("imap_username"))
         acc.setdefault("smtp_password", acc.get("imap_password"))
+        acc.setdefault("allow_send", global_allow_send)
         for field in required:
             if field not in acc:
                 raise RuntimeError(
@@ -227,6 +229,18 @@ def detect_archive_folder(client: IMAPClient) -> str:
         if name in ("[Gmail]/All Mail", "Archive"):
             return name
     return "Archive"
+
+
+def detect_drafts_folder(client: IMAPClient) -> str:
+    import imapclient as imc
+
+    result = client.find_special_folder(imc.DRAFTS)
+    if result:
+        return result
+    for name in ("Drafts", "[Gmail]/Drafts", "INBOX.Drafts"):
+        if client.folder_exists(name):
+            return name
+    return "Drafts"
 
 
 # ---------------------------------------------------------------------------
@@ -568,6 +582,11 @@ async def send_email(
     accounts = ctx.lifespan_context["accounts"]
     acc = resolve_account(accounts, account_id)
 
+    if not acc.get("allow_send", True):
+        return {
+            "error": f"Sending is disabled for account '{acc['id']}'. Use create_draft instead."
+        }
+
     def _send():
         msg = MIMEMultipart("alternative") if html else MIMEText(body)
         if html:
@@ -625,6 +644,49 @@ async def send_email(
         return {"success": True, "message_id": msg.get("Message-ID", "")}
 
     return await asyncio.to_thread(_send)
+
+
+@mcp.tool(
+    description="Save an email as a draft for review before sending. The draft appears in the account's Drafts folder."
+)
+async def create_draft(
+    ctx: Context,
+    to: str,
+    subject: str,
+    body: str,
+    account_id: Optional[str] = None,
+    cc: Optional[str] = None,
+    bcc: Optional[str] = None,
+    html: Optional[str] = None,
+) -> dict:
+    accounts = ctx.lifespan_context["accounts"]
+    acc = resolve_account(accounts, account_id)
+
+    def _draft():
+        msg = MIMEMultipart("alternative") if html else MIMEText(body)
+        if html:
+            msg.attach(MIMEText(body, "plain"))
+            msg.attach(MIMEText(html, "html"))
+
+        msg["From"] = acc["smtp_username"]
+        msg["To"] = to
+        msg["Subject"] = subject
+        if cc:
+            msg["Cc"] = cc
+        if bcc:
+            msg["Bcc"] = bcc
+
+        client = get_imap_client(acc)
+        try:
+            drafts_folder = detect_drafts_folder(client)
+            if not client.folder_exists(drafts_folder):
+                client.create_folder(drafts_folder)
+            client.append(drafts_folder, msg.as_bytes(), flags=[b"\\Draft", b"\\Seen"])
+            return {"success": True, "folder": drafts_folder}
+        finally:
+            client.logout()
+
+    return await asyncio.to_thread(_draft)
 
 
 @mcp.tool(

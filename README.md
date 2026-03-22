@@ -4,7 +4,8 @@ An MCP server that bridges IMAP/SMTP email accounts to [Poke](https://poke.com).
 
 ## Features
 
-- **11 MCP tools**: search, read, send, archive, move, mark, list/create/rename/delete folders, server info
+- **12 MCP tools**: search, read, send, draft, archive, move, mark, list/create/rename/delete folders, server info
+- **Send toggle**: Disable `send_email` globally or per account — agents use `create_draft` instead
 - **IMAP IDLE watcher**: Real-time monitoring of new emails, forwarded to Poke automatically
 - **Multi-account support**: Configure multiple email accounts in a single config file
 - **Bearer token auth**: Secure the server with `MCP_API_KEY` so only you can use it
@@ -96,7 +97,8 @@ docker run -d \
 |------|-------------|
 | `search_emails` | Search by from, to, subject, date range |
 | `read_email` | Read full email content by UID |
-| `send_email` | Send email with text/HTML, CC/BCC, reply threading |
+| `send_email` | Send email with text/HTML, CC/BCC, reply threading (can be disabled) |
+| `create_draft` | Save email as draft for review before sending |
 | `archive_email` | Move email to Archive folder |
 | `move_email` | Move email between folders |
 | `mark_email` | Set read/unread/flagged/unflagged |

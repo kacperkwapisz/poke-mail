@@ -2,6 +2,9 @@
 
 An MCP server that bridges IMAP/SMTP email accounts to [Poke](https://poke.com). Provides AI agents with tools to search, read, send, and manage emails, and automatically forwards new incoming emails to the Poke inbound endpoint.
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/kacperkwapisz/poke-mail)
+[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/github?repo=https://github.com/kacperkwapisz/poke-mail)
+
 ## Features
 
 - **12 MCP tools**: search, read, send, draft, archive, move, mark, list/create/rename/delete folders, server info
@@ -131,10 +134,17 @@ The GitHub Actions workflow automatically builds and pushes to `ghcr.io` on ever
 
 ### Render
 
-1. Push to GitHub
-2. Create a Web Service on Render connected to your repo
-3. Add `MCP_API_KEY`, `POKE_API_KEY`, and `POKE_WEBHOOK_URL` as environment variables
-4. Mount your `config.yml` as a secret file or set `CONFIG_PATH`
+Click the **Deploy to Render** button above, or manually:
+
+1. Create a Web Service on Render connected to your repo
+2. Fill in `IMAP_HOST`, `IMAP_USERNAME`, `IMAP_PASSWORD`, `POKE_WEBHOOK_URL`, and `POKE_API_KEY`
+3. `MCP_API_KEY` is auto-generated — copy it for your Poke connection settings
+
+For multi-account setups, mount a `config.yml` as a secret file instead of using env vars.
+
+### Railway
+
+Click the **Deploy on Railway** button above, then set the same environment variables as Render.
 
 ## Poke Setup
 

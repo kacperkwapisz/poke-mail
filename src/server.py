@@ -608,6 +608,19 @@ async def send_email(
             "error": f"Sending is disabled for account '{acc['id']}'. Use create_draft instead."
         }
 
+    blocked = {addr.lower() for addr in acc.get("blocked_recipients", [])}
+    if blocked:
+        all_recipients = [a.strip().lower() for a in to.split(",")]
+        if cc:
+            all_recipients.extend(a.strip().lower() for a in cc.split(","))
+        if bcc:
+            all_recipients.extend(a.strip().lower() for a in bcc.split(","))
+        denied = [r for r in all_recipients if r in blocked]
+        if denied:
+            return {
+                "error": f"Sending to {', '.join(denied)} is blocked. Use create_draft instead."
+            }
+
     def _send():
         msg = MIMEMultipart("alternative") if html else MIMEText(body)
         if html:

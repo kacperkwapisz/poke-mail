@@ -21,7 +21,7 @@ accounts:
     watch_folders:
       - INBOX
 
-  # Full — separate SMTP settings (only if different from IMAP)
+  # Full — separate SMTP settings, send restrictions
   # - id: work
   #   imap_host: imap.example.com
   #   imap_port: 993
@@ -31,5 +31,9 @@ accounts:
   #   smtp_port: 587
   #   smtp_username: "you@example.com"
   #   smtp_password: "smtp-password"
+  #   allow_send: true
+  #   blocked_recipients:          # agent cannot send to these addresses
+  #     - "ceo@company.com"
+  #     - "all-staff@company.com"
   #   watch_folders:
   #     - INBOX

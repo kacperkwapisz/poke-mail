@@ -75,6 +75,18 @@ npx @modelcontextprotocol/inspector
 
 Open http://localhost:3000 and connect to `http://localhost:3000/mcp` using "Streamable HTTP" transport. Pass `Authorization: Bearer your-secret-key` header.
 
+## Install with your AI Agent
+
+Copy this prompt into your AI coding agent (Claude Code, Cursor, etc.):
+
+`Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, create a Python virtualenv named .venv, install requirements.txt, copy config.example.yml to config.yml, then help me configure config.yml — you can guide me on which IMAP/SMTP host and port to use for my email provider (iCloud, Gmail, Outlook, etc.) and what username format to use, but do NOT type or suggest passwords or API keys, tell me to enter those myself outside of this terminal and confirm when done — then generate a random 32+ character MCP_API_KEY, save it to a .env file as MCP_API_KEY=<the-key>, install the poke npm package globally, run poke login so I can authenticate, and run start.sh to start the server and tunnel it to Poke.`
+
+To start the server again later:
+
+```bash
+./start.sh
+```
+
 ## Authentication
 
 Set `MCP_API_KEY` to secure the server. All requests must include `Authorization: Bearer <MCP_API_KEY>`.
@@ -104,6 +116,15 @@ docker run -d \
   -e MCP_API_KEY=your-secret-key \
   ghcr.io/kacperkwapisz/poke-mail:main
 ```
+
+### Resource Limits
+
+The server is mostly idle (IMAP IDLE + lightweight HTTP). Recommended limits for container orchestrators:
+
+| Resource | Reservation | Limit |
+|----------|-------------|-------|
+| Memory   | 128 MB      | 256 MB |
+| CPU      | 0.25        | 0.5    |
 
 ## MCP Tools
 

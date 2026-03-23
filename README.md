@@ -79,7 +79,9 @@ Open http://localhost:3000 and connect to `http://localhost:3000/mcp` using "Str
 
 Copy this prompt into your AI coding agent (Claude Code, Cursor, etc.):
 
-`Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, create a Python virtualenv named .venv, install requirements.txt, copy config.example.yml to config.yml, then help me configure config.yml — you can guide me on which IMAP/SMTP host and port to use for my email provider (iCloud, Gmail, Outlook, etc.) and what username format to use, but do NOT type or suggest passwords or API keys, tell me to enter those myself outside of this terminal and confirm when done — then generate a random 32+ character MCP_API_KEY, save it to a .env file as MCP_API_KEY=<the-key>, install the poke npm package globally, run poke login so I can authenticate, and run start.sh to start the server and tunnel it to Poke.`
+```text
+Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, create a Python virtualenv named .venv, install requirements.txt, copy config.example.yml to config.yml, then help me configure config.yml — you can guide me on which IMAP/SMTP host and port to use for my email provider (iCloud, Gmail, Outlook, etc.) and what username format to use, but do NOT type or suggest passwords or API keys, tell me to enter those myself outside of this terminal and confirm when done — then generate a random 32+ character MCP_API_KEY, save it to a .env file as MCP_API_KEY=<the-key>, install the poke npm package globally, run poke login so I can authenticate, and run start.sh to start the server and tunnel it to Poke.
+```
 
 To start the server again later:
 

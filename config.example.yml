@@ -12,25 +12,27 @@ poke_api_key: "your-api-key-here"
 allow_send: true
 
 accounts:
-  # Minimal — SMTP falls back to IMAP host/credentials
-  - id: personal
-    imap_host: imap.gmail.com
-    imap_port: 993
-    imap_username: "you@gmail.com"
+  # iCloud Mail — login is @icloud.com, send as your custom domain
+  # Generate an App-Specific Password: https://support.apple.com/en-us/102654
+  - id: icloud
+    imap_host: imap.mail.me.com
+    imap_username: "you@icloud.com"
     imap_password: "your-app-password"
+    smtp_host: smtp.mail.me.com
+    smtp_username: "you@icloud.com"
+    smtp_password: "your-app-password"
+    from_address: "you@yourdomain.com"  # Override From: header (login is @icloud.com but send as custom domain)
     watch_folders:
       - INBOX
 
-  # Full — separate SMTP settings (only if different from IMAP)
+  # Custom SMTP server — SMTP falls back to IMAP credentials if not specified
   # - id: work
   #   imap_host: imap.example.com
-  #   imap_port: 993
   #   imap_username: "you@example.com"
-  #   imap_password: "imap-password"
+  #   imap_password: "your-password"
   #   smtp_host: smtp.example.com
   #   smtp_port: 587
   #   smtp_username: "you@example.com"
-  #   smtp_password: "smtp-password"
-  #   from_address: "you@customdomain.com"  # Override From: header (e.g. iCloud login is @icloud.com but you send as custom domain)
+  #   smtp_password: "your-password"
   #   watch_folders:
   #     - INBOX

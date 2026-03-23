@@ -29,21 +29,31 @@ webhook_url: https://poke.com/api/v1/inbound-sms/webhook
 poke_api_key: your-api-key  # from https://poke.com/settings/advanced
 
 accounts:
-  - id: work
-    imap_host: imap.gmail.com
-    imap_port: 993
-    imap_username: you@gmail.com
+  # iCloud Mail — login is @icloud.com, send as your custom domain
+  - id: icloud
+    imap_host: imap.mail.me.com
+    imap_username: you@icloud.com
     imap_password: your-app-password
-    smtp_host: smtp.gmail.com
-    smtp_port: 587
-    smtp_username: you@gmail.com
+    smtp_host: smtp.mail.me.com
+    smtp_username: you@icloud.com
     smtp_password: your-app-password
-    from_address: you@customdomain.com  # optional — override From: header (useful for iCloud with custom domains)
+    from_address: you@yourdomain.com  # optional — override From: header
+    watch_folders:
+      - INBOX
+
+  # Custom SMTP server
+  - id: work
+    imap_host: imap.example.com
+    imap_username: you@example.com
+    imap_password: your-password
+    smtp_host: smtp.example.com
+    smtp_username: you@example.com
+    smtp_password: your-password
     watch_folders:
       - INBOX
 ```
 
-For Gmail, use an [App Password](https://support.google.com/accounts/answer/185833).
+For iCloud, generate an [App-Specific Password](https://support.apple.com/en-us/102654).
 
 ### 2. Install dependencies
 

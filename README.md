@@ -35,6 +35,7 @@ accounts:
     smtp_port: 587
     smtp_username: you@gmail.com
     smtp_password: your-app-password
+    from_address: you@customdomain.com  # optional — override From: header (useful for iCloud with custom domains)
     watch_folders:
       - INBOX
 ```

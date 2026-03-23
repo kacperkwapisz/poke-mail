@@ -102,7 +102,7 @@ docker run -d \
   -p 3000:3000 \
   -v $(pwd)/config.yml:/app/config.yml:ro \
   -e MCP_API_KEY=your-secret-key \
-  ghcr.io/OWNER/poke-mail:main
+  ghcr.io/kacperkwapisz/poke-mail:main
 ```
 
 ## MCP Tools

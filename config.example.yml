@@ -1,7 +1,7 @@
 # poke-mail configuration
 # Copy this file to config.yml and fill in your credentials
 
-webhook_url: "https://poke.com/api/v1/inbound-sms/webhook"
+webhook_url: "https://poke.com/api/v1/inbound/api-message"
 poke_api_key: "your-api-key-here"
 
 # MCP_API_KEY is set via environment variable (not in this file)

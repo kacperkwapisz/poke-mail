@@ -452,7 +452,7 @@ async def lifespan(server: FastMCP):
     accounts = parse_accounts(config)
     webhook_url = os.environ.get(
         "POKE_WEBHOOK_URL",
-        config.get("webhook_url", "https://poke.com/api/v1/inbound-sms/webhook"),
+        config.get("webhook_url", "https://poke.com/api/v1/inbound/api-message"),
     )
     api_key = os.environ.get("POKE_API_KEY", config.get("poke_api_key", ""))
     stop_event = asyncio.Event()

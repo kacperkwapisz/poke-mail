@@ -25,7 +25,7 @@ cp config.example.yml config.yml
 Edit `config.yml` with your email credentials:
 
 ```yaml
-webhook_url: https://poke.com/api/v1/inbound-sms/webhook
+webhook_url: https://poke.com/api/v1/inbound/api-message
 poke_api_key: your-api-key  # from https://poke.com/settings/advanced
 
 accounts:

@@ -22,6 +22,6 @@ EXPOSE 3000
 ENV PORT=3000
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import httpx; r = httpx.get('http://localhost:3000/mcp', timeout=5); assert r.status_code == 405" || exit 1
+    CMD python -c "import httpx; r = httpx.get('http://localhost:3000/mcp', timeout=5); assert r.status_code == 200" || exit 1
 
 CMD ["python", "src/server.py"]

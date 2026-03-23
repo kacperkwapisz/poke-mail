@@ -117,6 +117,14 @@ def resolve_account(accounts: list[dict], account_id: Optional[str] = None) -> d
     for acc in accounts:
         if acc["id"] == account_id:
             return acc
+    # Fallback: match by email address (from_address, imap_username, smtp_username)
+    for acc in accounts:
+        if account_id in (
+            acc.get("from_address"),
+            acc.get("imap_username"),
+            acc.get("smtp_username"),
+        ):
+            return acc
     raise ValueError(
         f"Unknown account_id: {account_id}. Available: {[a['id'] for a in accounts]}"
     )
@@ -491,6 +499,13 @@ if not mcp_api_key:
     )
 
 mcp = FastMCP("poke-mail", lifespan=lifespan, auth=auth)
+
+
+@mcp.custom_route("/mcp", methods=["GET"])
+async def health(request):
+    from starlette.responses import JSONResponse
+
+    return JSONResponse({"status": "ok"})
 
 
 @mcp.tool(

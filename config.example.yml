@@ -7,9 +7,9 @@ poke_api_key: "your-api-key-here"
 # MCP_API_KEY is set via environment variable (not in this file)
 # It secures the MCP server so only you can use it
 
-# Global send toggle — disabled by default for safety.
-# Agents can still use create_draft. Enable per account with allow_send: true
-allow_send: false
+# Global send toggle — set to false to disable send_email for all accounts
+# Agents can still use create_draft. Override per account with allow_send.
+allow_send: true
 
 accounts:
   # Minimal — SMTP falls back to IMAP host/credentials
@@ -31,5 +31,6 @@ accounts:
   #   smtp_port: 587
   #   smtp_username: "you@example.com"
   #   smtp_password: "smtp-password"
+  #   from_address: "you@customdomain.com"  # Override From: header (e.g. iCloud login is @icloud.com but you send as custom domain)
   #   watch_folders:
   #     - INBOX

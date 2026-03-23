@@ -82,11 +82,15 @@ def parse_accounts(config: dict) -> list[dict]:
                 "smtp_password": os.environ.get(
                     "SMTP_PASSWORD", os.environ["IMAP_PASSWORD"]
                 ),
+                "from_address": os.environ.get(
+                    "FROM_ADDRESS",
+                    os.environ.get("SMTP_USERNAME", os.environ["IMAP_USERNAME"]),
+                ),
                 "watch_folders": ["INBOX"],
             }
         ]
 
-    global_allow_send = config.get("allow_send", False)
+    global_allow_send = config.get("allow_send", True)
     required = ("imap_host", "imap_username", "imap_password")
     for i, acc in enumerate(accounts):
         acc.setdefault("id", f"account-{i}")
@@ -97,6 +101,7 @@ def parse_accounts(config: dict) -> list[dict]:
         acc.setdefault("smtp_port", 587)
         acc.setdefault("smtp_username", acc.get("imap_username"))
         acc.setdefault("smtp_password", acc.get("imap_password"))
+        acc.setdefault("from_address", acc.get("smtp_username"))
         acc.setdefault("allow_send", global_allow_send)
         for field in required:
             if field not in acc:
@@ -603,7 +608,7 @@ async def send_email(
     accounts = ctx.lifespan_context["accounts"]
     acc = resolve_account(accounts, account_id)
 
-    if not acc.get("allow_send", False):
+    if not acc.get("allow_send", True):
         return {
             "error": f"Sending is disabled for account '{acc['id']}'. Use create_draft instead."
         }
@@ -614,7 +619,7 @@ async def send_email(
             msg.attach(MIMEText(body, "plain"))
             msg.attach(MIMEText(html, "html"))
 
-        msg["From"] = acc["smtp_username"]
+        msg["From"] = acc["from_address"]
         msg["To"] = to
         msg["Subject"] = subject
         if cc:
@@ -689,7 +694,7 @@ async def create_draft(
             msg.attach(MIMEText(body, "plain"))
             msg.attach(MIMEText(html, "html"))
 
-        msg["From"] = acc["smtp_username"]
+        msg["From"] = acc["from_address"]
         msg["To"] = to
         msg["Subject"] = subject
         if cc:

@@ -86,7 +86,7 @@ def parse_accounts(config: dict) -> list[dict]:
             }
         ]
 
-    global_allow_send = config.get("allow_send", True)
+    global_allow_send = config.get("allow_send", False)
     required = ("imap_host", "imap_username", "imap_password")
     for i, acc in enumerate(accounts):
         acc.setdefault("id", f"account-{i}")
@@ -603,23 +603,10 @@ async def send_email(
     accounts = ctx.lifespan_context["accounts"]
     acc = resolve_account(accounts, account_id)
 
-    if not acc.get("allow_send", True):
+    if not acc.get("allow_send", False):
         return {
             "error": f"Sending is disabled for account '{acc['id']}'. Use create_draft instead."
         }
-
-    blocked = {addr.lower() for addr in acc.get("blocked_recipients", [])}
-    if blocked:
-        all_recipients = [a.strip().lower() for a in to.split(",")]
-        if cc:
-            all_recipients.extend(a.strip().lower() for a in cc.split(","))
-        if bcc:
-            all_recipients.extend(a.strip().lower() for a in bcc.split(","))
-        denied = [r for r in all_recipients if r in blocked]
-        if denied:
-            return {
-                "error": f"Sending to {', '.join(denied)} is blocked. Use create_draft instead."
-            }
 
     def _send():
         msg = MIMEMultipart("alternative") if html else MIMEText(body)

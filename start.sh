@@ -3,6 +3,20 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# Check for updates
+REPO="kacperkwapisz/poke-mail"
+LOCAL_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+REMOTE_SHA=$(curl -sf "https://api.github.com/repos/${REPO}/commits/main" \
+  | grep -m1 '"sha"' | cut -d'"' -f4 || echo "")
+
+if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; then
+  echo "⚡ A newer version of poke-mail is available."
+  echo "   Local:  ${LOCAL_SHA:0:7}"
+  echo "   Remote: ${REMOTE_SHA:0:7}"
+  echo "   Run 'git pull' to update."
+  echo ""
+fi
+
 # Load .env if present
 if [ -f .env ]; then
   set -a

@@ -601,10 +601,24 @@ async def lifespan(server: FastMCP):
 # ---------------------------------------------------------------------------
 
 mcp_api_key = os.environ.get("MCP_API_KEY", "")
-auth = ApiKeyAuth(mcp_api_key) if mcp_api_key else None
-if not mcp_api_key:
+
+# When running behind the poke tunnel (POKE_TUNNEL=1), the tunnel handles
+# authentication so the MCP_API_KEY bearer check is optional.
+# In direct / Docker deployments the key is still required for security.
+poke_tunnel_mode = os.environ.get("POKE_TUNNEL", "") == "1"
+
+if mcp_api_key:
+    auth = ApiKeyAuth(mcp_api_key)
+elif poke_tunnel_mode:
+    auth = None  # tunnel handles auth
+    logger.info(
+        "POKE_TUNNEL=1 detected — MCP_API_KEY not required (tunnel handles auth)."
+    )
+else:
+    auth = None
     logger.warning(
-        "MCP_API_KEY not set — server is unauthenticated. Set MCP_API_KEY to secure it."
+        "MCP_API_KEY not set — server is unauthenticated. "
+        "Set MCP_API_KEY or use POKE_TUNNEL=1 to silence this warning."
     )
 
 mcp = FastMCP("poke-mail", lifespan=lifespan, auth=auth)

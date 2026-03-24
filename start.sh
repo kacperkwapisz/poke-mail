@@ -3,18 +3,44 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# ── Check for updates ─────────────────────────────────────────────────────────
-REPO="kacperkwapisz/poke-mail"
-LOCAL_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
-REMOTE_SHA=$(curl -sf "https://api.github.com/repos/${REPO}/commits/main" \
-  | grep -m1 '"sha"' | cut -d'"' -f4 || echo "")
+# ── OTA update ────────────────────────────────────────────────────────────────
+# Pull latest changes from remote with a short timeout so we don't hang offline.
+# If requirements.txt changed, reinstall dependencies afterwards.
+if git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
+  echo "Checking for updates..."
+  REQS_BEFORE=$(git rev-parse HEAD:requirements.txt 2>/dev/null || echo "")
 
-if [ -n "$REMOTE_SHA" ] && [ "$REMOTE_SHA" != "$LOCAL_SHA" ]; then
-  echo "⚡ A newer version of poke-mail is available."
-  echo "   Local:  ${LOCAL_SHA:0:7}"
-  echo "   Remote: ${REMOTE_SHA:0:7}"
-  echo "   Run 'git pull' to update."
-  echo ""
+  # git fetch with a 5-second timeout; silently skip if offline or unreachable
+  if git fetch --depth=1 origin --quiet --no-tags \
+       -c core.sshCommand="ssh -o ConnectTimeout=5" \
+       -c http.lowSpeedLimit=1 -c http.lowSpeedTime=5 \
+       2>/dev/null; then
+    LOCAL=$(git rev-parse HEAD)
+    REMOTE=$(git rev-parse FETCH_HEAD 2>/dev/null || echo "")
+
+    if [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
+      echo "  ↳ Update found (${LOCAL:0:7} → ${REMOTE:0:7}), applying..."
+      git merge --ff-only FETCH_HEAD --quiet
+      echo "  ✓ Updated to $(git rev-parse --short HEAD)"
+
+      # Re-check requirements.txt after update
+      REQS_AFTER=$(git rev-parse HEAD:requirements.txt 2>/dev/null || echo "")
+      if [ "$REQS_BEFORE" != "$REQS_AFTER" ]; then
+        echo "  ↳ requirements.txt changed — reinstalling dependencies..."
+        # Activate venv if it already exists so pip targets the right env
+        [ -d .venv ] && source .venv/bin/activate
+        pip install -q -r requirements.txt
+        echo "  ✓ Dependencies updated"
+      fi
+      echo ""
+    else
+      echo "  ✓ Already up to date"
+      echo ""
+    fi
+  else
+    echo "  ℹ  Could not reach remote — continuing with local version."
+    echo ""
+  fi
 fi
 
 # ── One-time setup (skipped on subsequent runs) ───────────────────────────────

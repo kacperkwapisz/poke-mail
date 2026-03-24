@@ -217,3 +217,5 @@ __marimo__/
 
 # poke-mail config (contains credentials)
 config.yml
+# macOS
+.DS_Store

@@ -353,11 +353,10 @@ def detect_archive_folder(client: IMAPClient) -> str:
 
 
 def detect_drafts_folder(client: IMAPClient) -> str:
-    import imapclient as imc
-
-    result = client.find_special_folder(imc.DRAFTS)
-    if result:
-        return result
+    folders = client.list_folders()
+    for flags, _delim, name in folders:
+        if b"\\Drafts" in flags:
+            return name
     for name in ("Drafts", "[Gmail]/Drafts", "INBOX.Drafts"):
         if client.folder_exists(name):
             return name

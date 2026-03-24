@@ -4,11 +4,27 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # ── OTA update ────────────────────────────────────────────────────────────────
+# Ensure git is available. If not, attempt a quiet install via brew (macOS) or
+# apt-get (Linux). If the install fails or the OS is unsupported, skip OTA
+# silently — never abort the script over a missing update tool.
+if ! command -v git &>/dev/null; then
+  echo "  ℹ  git not found — attempting to install..."
+  _git_installed=0
+  if command -v brew &>/dev/null; then
+    brew install git --quiet &>/dev/null && _git_installed=1 || true
+  elif command -v apt-get &>/dev/null; then
+    sudo apt-get install -y -qq git &>/dev/null && _git_installed=1 || true
+  fi
+  if [ "$_git_installed" -eq 1 ] && command -v git &>/dev/null; then
+    echo "  ✓ git installed"
+  else
+    echo "  ⚠  Could not install git — skipping update check."
+  fi
+fi
+
 # Pull latest changes from remote with a short timeout so we don't hang offline.
 # If requirements.txt changed, reinstall dependencies afterwards.
-if ! command -v git &>/dev/null; then
-  echo "  ℹ  git not found — skipping update check."
-elif git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
+if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
   echo "Checking for updates..."
   REQS_BEFORE=$(git rev-parse HEAD:requirements.txt 2>/dev/null || echo "")
 

@@ -13,50 +13,39 @@ An MCP server that bridges IMAP/SMTP email accounts to [Poke](https://poke.com).
 
 ## Quick Start
 
-### Automated setup (recommended)
-
 ```bash
 git clone https://github.com/kacperkwapisz/poke-mail.git
 cd poke-mail
 ```
 
-If you haven't logged into Poke yet, do that first — it lets `setup.sh` pick up your token automatically:
+If you haven't logged into Poke yet, do that first — `start.sh` will pick up your token automatically:
 
 ```bash
 npx poke login
 ```
 
-Then run the setup script:
-
-```bash
-bash setup.sh
-```
-
-`setup.sh` will:
-1. Create a Python virtualenv and install dependencies
-2. Detect your Poke API key from `poke login` credentials (or prompt you to paste one)
-3. Copy `config.example.yml` → `config.yml` and inject the API key automatically
-4. Generate a random `MCP_API_KEY` and write it to `.env`
-5. Ensure the `poke` npm package is installed globally
-
-After setup, open `config.yml` and fill in your email account credentials, then start the server:
+Then just run:
 
 ```bash
 ./start.sh
 ```
+
+On the **first run**, `start.sh` automatically handles the full setup:
+1. Creates a Python virtualenv and installs dependencies
+2. Copies `config.example.yml` → `config.yml`
+3. Reads your Poke API key from `poke login` credentials and injects it into `config.yml`
+4. Generates a random `MCP_API_KEY` and saves it to `.env`
+
+After that first run, open `config.yml` and fill in your email account credentials. Run `./start.sh` again to start the server.
+
+On **subsequent runs**, `start.sh` skips setup and goes straight to starting the server and tunnel.
 
 ### AI coding agent setup
 
 Copy this prompt into your AI coding agent (Claude Code, Cursor, etc.):
 
 ```text
-Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, run 'npx poke login' so I can authenticate with Poke (wait for me to confirm), then run 'bash setup.sh' which will automatically wire up my Poke API key, generate an MCP_API_KEY, and set up the virtualenv — then help me configure config.yml with my email credentials (guide me on IMAP/SMTP host and port for my provider but do NOT type passwords or secrets — tell me to enter those myself and confirm when done) — then run start.sh to start the server and tunnel it to Poke.
-```
-
-To start the server again later:
-
-```bash
-./start.sh
+Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, run 'npx poke login' so I can authenticate with Poke (wait for me to confirm), then run './start.sh' which will automatically wire up my Poke API key, generate an MCP_API_KEY, and set up the virtualenv — then help me fill in my email credentials in config.yml (guide me on IMAP/SMTP host and port for my provider but do NOT type passwords or secrets — tell me to enter those myself and confirm when done) — then run ./start.sh again to start the server and tunnel it to Poke.
 ```
 
 ## Manual Setup

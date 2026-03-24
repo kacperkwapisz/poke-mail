@@ -13,10 +13,44 @@ An MCP server that bridges IMAP/SMTP email accounts to [Poke](https://poke.com).
 
 ## Quick Start
 
+### Automated setup (recommended)
+
+```bash
+git clone https://github.com/kacperkwapisz/poke-mail.git
+cd poke-mail
+```
+
+If you haven't logged into Poke yet, do that first — it lets `setup.sh` pick up your token automatically:
+
+```bash
+npx poke login
+```
+
+Then run the setup script:
+
+```bash
+bash setup.sh
+```
+
+`setup.sh` will:
+1. Create a Python virtualenv and install dependencies
+2. Detect your Poke API key from `poke login` credentials (or prompt you to paste one)
+3. Copy `config.example.yml` → `config.yml` and inject the API key automatically
+4. Generate a random `MCP_API_KEY` and write it to `.env`
+5. Ensure the `poke` npm package is installed globally
+
+After setup, open `config.yml` and fill in your email account credentials, then start the server:
+
+```bash
+./start.sh
+```
+
+### AI coding agent setup
+
 Copy this prompt into your AI coding agent (Claude Code, Cursor, etc.):
 
 ```text
-Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, create a Python virtualenv named .venv, install requirements.txt, copy config.example.yml to config.yml, then help me configure config.yml — you can guide me on which IMAP/SMTP host and port to use for my email provider (iCloud, Gmail, Outlook, etc.) and what username format to use, but do NOT type or suggest passwords or API keys, tell me to enter those myself outside of this terminal and confirm when done — then generate a random 32+ character MCP_API_KEY, save it to a .env file as MCP_API_KEY=<the-key>, install the poke npm package globally, run poke login so I can authenticate, and run start.sh to start the server and tunnel it to Poke.
+Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, run 'npx poke login' so I can authenticate with Poke (wait for me to confirm), then run 'bash setup.sh' which will automatically wire up my Poke API key, generate an MCP_API_KEY, and set up the virtualenv — then help me configure config.yml with my email credentials (guide me on IMAP/SMTP host and port for my provider but do NOT type passwords or secrets — tell me to enter those myself and confirm when done) — then run start.sh to start the server and tunnel it to Poke.
 ```
 
 To start the server again later:
@@ -33,7 +67,7 @@ To start the server again later:
 cp config.example.yml config.yml
 ```
 
-Edit `config.yml` with your email credentials:
+Edit `config.yml` with your email credentials and Poke API key (from [poke.com/settings/advanced](https://poke.com/settings/advanced)):
 
 ```yaml
 webhook_url: https://poke.com/api/v1/inbound/api-message

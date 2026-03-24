@@ -13,6 +13,8 @@ An MCP server that bridges IMAP/SMTP email accounts to [Poke](https://poke.com).
 
 ## Quick Start
 
+**Prerequisites:** Python 3.10+ and Node.js 18+ (which includes `npx` and `npm`).
+
 ```bash
 git clone https://github.com/kacperkwapisz/poke-mail.git
 cd poke-mail
@@ -35,8 +37,11 @@ On the **first run**, `start.sh` automatically handles the full setup:
 2. Copies `config.example.yml` → `config.yml`
 3. Reads your Poke API key from `poke login` credentials and injects it into `config.yml`
 4. Generates a random `MCP_API_KEY` and saves it to `.env`
+5. Immediately starts the server and tunnel
 
-After that first run, open `config.yml` and fill in your email account credentials. Run `./start.sh` again to start the server.
+After the first run completes (or if the server exits with email auth errors), open `config.yml` and fill in your email account credentials, then run `./start.sh` again.
+
+> **Note:** If your email credentials in `config.yml` are still placeholders, IMAP/SMTP connections will fail on startup. Update the file and rerun `./start.sh`.
 
 On **subsequent runs**, `start.sh` skips setup and goes straight to starting the server and tunnel.
 
@@ -45,7 +50,7 @@ On **subsequent runs**, `start.sh` skips setup and goes straight to starting the
 Copy this prompt into your AI coding agent (Claude Code, Cursor, etc.):
 
 ```text
-Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, run 'npx poke login' so I can authenticate with Poke (wait for me to confirm), then run './start.sh' which will automatically wire up my Poke API key, generate an MCP_API_KEY, and set up the virtualenv — then help me fill in my email credentials in config.yml (guide me on IMAP/SMTP host and port for my provider but do NOT type passwords or secrets — tell me to enter those myself and confirm when done) — then run ./start.sh again to start the server and tunnel it to Poke.
+Set up poke-mail (https://github.com/kacperkwapisz/poke-mail) for me — clone the repo, run 'npx poke login' so I can authenticate with Poke (wait for me to confirm), then run './start.sh' which will automatically wire up my Poke API key, generate an MCP_API_KEY, set up the virtualenv, and start the server and tunnel — then help me fill in my email credentials in config.yml (guide me on IMAP/SMTP host and port for my provider but do NOT type passwords or secrets — tell me to enter those myself and confirm when done); if the server fails due to missing/invalid email credentials, have me update config.yml and run './start.sh' again to restart it.
 ```
 
 ## Manual Setup
@@ -98,7 +103,7 @@ pip install -r requirements.txt
 ### 3. Run
 
 ```bash
-MCP_API_KEY=your-secret-key python src/server.py
+MCP_API_KEY=your-secret-key python3 src/server.py
 ```
 
 ### 4. Test
@@ -113,7 +118,9 @@ Open http://localhost:3000 and connect to `http://localhost:3000/mcp` using "Str
 
 Set `MCP_API_KEY` to secure the server. All requests must include `Authorization: Bearer <MCP_API_KEY>`.
 
-If `MCP_API_KEY` is not set, the server runs unauthenticated (with a warning). **Always set it in production.**
+When running via `start.sh` (which uses `poke tunnel`), set `POKE_TUNNEL=1` to make `MCP_API_KEY` optional — the tunnel handles authentication. `start.sh` sets this automatically.
+
+If `MCP_API_KEY` is not set and `POKE_TUNNEL` is not `1`, the server runs unauthenticated (with a warning). **Always set it in non-tunnel deployments.**
 
 When connecting from Poke, add the bearer token in your connection settings.
 
@@ -169,7 +176,8 @@ The server is mostly idle (IMAP IDLE + lightweight HTTP). Recommended limits for
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MCP_API_KEY` | — | **Required in production.** Bearer token to secure the MCP server |
+| `MCP_API_KEY` | — | Bearer token to secure the MCP server. Optional when `POKE_TUNNEL=1`. |
+| `POKE_TUNNEL` | `0` | Set to `1` when running behind the poke tunnel — skips `MCP_API_KEY` auth requirement. `start.sh` sets this automatically. |
 | `CONFIG_PATH` | `config.yml` | Path to config file |
 | `POKE_WEBHOOK_URL` | from config | Overrides webhook URL in config |
 | `POKE_API_KEY` | from config | Overrides Poke API key in config |

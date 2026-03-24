@@ -4,59 +4,107 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 # ── OTA update ────────────────────────────────────────────────────────────────
-# Ensure git is available. If not, attempt a quiet install via brew (macOS) or
-# apt-get (Linux). If the install fails or the OS is unsupported, skip OTA
-# silently — never abort the script over a missing update tool.
-if ! command -v git &>/dev/null; then
-  echo "  ℹ  git not found — attempting to install..."
-  _git_installed=0
-  if command -v brew &>/dev/null; then
-    brew install git --quiet &>/dev/null && _git_installed=1 || true
-  elif command -v apt-get &>/dev/null; then
-    sudo apt-get install -y -qq git &>/dev/null && _git_installed=1 || true
-  fi
-  if [ "$_git_installed" -eq 1 ] && command -v git &>/dev/null; then
-    echo "  ✓ git installed"
-  else
-    echo "  ⚠  Could not install git — skipping update check."
-  fi
-fi
+# Uses curl + Python stdlib tarfile — no git or unzip required.
+#
+# Flow:
+#   1. Fetch latest commit SHA from GitHub API (tiny JSON, ~1 KB, 5 s timeout).
+#   2. Compare against .poke_version (last installed SHA). Skip if already
+#      up to date or if the remote is unreachable.
+#   3. Download the repo tarball only when an update exists (30 s timeout).
+#   4. Extract with Python tarfile, stripping the GitHub top-level prefix and
+#      skipping protected local files (.env, config.yml, .venv).
+#   5. Persist new SHA to .poke_version and reinstall deps if requirements.txt
+#      changed.
 
-# Pull latest changes from remote with a short timeout so we don't hang offline.
-# If requirements.txt changed, reinstall dependencies afterwards.
-if command -v git &>/dev/null && git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
+if command -v curl &>/dev/null && command -v python3 &>/dev/null; then
+  _OTA_REPO="kacperkwapisz/poke-mail"
+  _OTA_BRANCH="main"
+  _VERSION_FILE=".poke_version"
+
   echo "Checking for updates..."
-  REQS_BEFORE=$(git rev-parse HEAD:requirements.txt 2>/dev/null || echo "")
 
-  # git fetch with a 5-second timeout; silently skip if offline or unreachable
-  if git fetch --depth=1 origin --quiet --no-tags \
-       -c core.sshCommand="ssh -o ConnectTimeout=5" \
-       -c http.lowSpeedLimit=1 -c http.lowSpeedTime=5 \
-       2>/dev/null; then
-    LOCAL=$(git rev-parse HEAD)
-    REMOTE=$(git rev-parse FETCH_HEAD 2>/dev/null || echo "")
+  # Step 1: lightweight SHA check (fail silently if offline)
+  _REMOTE_SHA=$(curl -sf --max-time 5 \
+    "https://api.github.com/repos/${_OTA_REPO}/commits/${_OTA_BRANCH}" \
+    | python3 -c \
+        "import json,sys; print(json.load(sys.stdin)['sha'])" \
+    2>/dev/null || echo "")
 
-    if [ -n "$REMOTE" ] && [ "$LOCAL" != "$REMOTE" ]; then
-      echo "  ↳ Update found (${LOCAL:0:7} → ${REMOTE:0:7}), applying..."
-      git merge --ff-only FETCH_HEAD --quiet
-      echo "  ✓ Updated to $(git rev-parse --short HEAD)"
+  _LOCAL_SHA=$(cat "$_VERSION_FILE" 2>/dev/null || echo "")
 
-      # Re-check requirements.txt after update
-      REQS_AFTER=$(git rev-parse HEAD:requirements.txt 2>/dev/null || echo "")
-      if [ "$REQS_BEFORE" != "$REQS_AFTER" ]; then
+  if [ -z "$_REMOTE_SHA" ]; then
+    echo "  ℹ  Could not reach remote — continuing with local version."
+    echo ""
+  elif [ "$_REMOTE_SHA" = "$_LOCAL_SHA" ]; then
+    echo "  ✓ Already up to date (${_REMOTE_SHA:0:7})"
+    echo ""
+  else
+    echo "  ↳ Update found (${_LOCAL_SHA:0:7:-} → ${_REMOTE_SHA:0:7}), downloading..."
+
+    # Hash requirements.txt before extraction so we can detect changes
+    _REQS_BEFORE=$(python3 -c \
+      "import hashlib; print(hashlib.md5(open('requirements.txt','rb').read()).hexdigest())" \
+      2>/dev/null || echo "")
+
+    _TMP_TAR=$(mktemp /tmp/poke-mail-update.XXXXXX.tar.gz)
+
+    if curl -sfL --max-time 30 \
+         "https://api.github.com/repos/${_OTA_REPO}/tarball/${_OTA_BRANCH}" \
+         -o "$_TMP_TAR" 2>/dev/null; then
+
+      # Extract with Python: strip GitHub's top-level dir, skip protected paths
+      python3 - "$_TMP_TAR" <<'PYEOF'
+import sys, tarfile, os
+
+archive = sys.argv[1]
+# Files/dirs that must never be overwritten by an OTA update
+PROTECTED = {'.env', 'config.yml', '.venv', '.poke_version'}
+
+try:
+    with tarfile.open(archive, 'r:gz') as tf:
+        members = tf.getmembers()
+        if not members:
+            sys.exit(0)
+        # GitHub tarball root dir is e.g. "owner-repo-<sha>/"
+        prefix = members[0].name.split('/')[0] + '/'
+        for m in members:
+            if not m.name.startswith(prefix):
+                continue
+            rel = m.name[len(prefix):]   # path relative to repo root
+            if not rel:                   # skip the root dir entry itself
+                continue
+            top = rel.split('/')[0]
+            if top in PROTECTED:
+                continue
+            m.name = rel
+            try:
+                tf.extract(m, path='.', set_attrs=False)
+            except Exception:
+                pass  # best-effort; don't abort on permission issues etc.
+except Exception as e:
+    print(f'  ⚠  Extraction error: {e}')
+    sys.exit(1)
+PYEOF
+
+      # Persist new SHA so we don't re-download next run
+      echo "$_REMOTE_SHA" > "$_VERSION_FILE"
+      echo "  ✓ Updated to ${_REMOTE_SHA:0:7}"
+
+      # Reinstall deps if requirements.txt changed
+      _REQS_AFTER=$(python3 -c \
+        "import hashlib; print(hashlib.md5(open('requirements.txt','rb').read()).hexdigest())" \
+        2>/dev/null || echo "")
+      if [ -n "$_REQS_BEFORE" ] && [ "$_REQS_BEFORE" != "$_REQS_AFTER" ]; then
         echo "  ↳ requirements.txt changed — reinstalling dependencies..."
-        # Activate venv if it already exists so pip targets the right env
         [ -d .venv ] && source .venv/bin/activate
         pip install -q -r requirements.txt
         echo "  ✓ Dependencies updated"
       fi
-      echo ""
     else
-      echo "  ✓ Already up to date"
-      echo ""
+      echo "  ℹ  Download failed — continuing with local version."
     fi
-  else
-    echo "  ℹ  Could not reach remote — continuing with local version."
+
+    rm -f "$_TMP_TAR"
     echo ""
   fi
 fi
@@ -107,8 +155,6 @@ except Exception:
 
   if [ -n "$POKE_TOKEN" ]; then
     echo "  ✓ Poke API key detected from 'poke login'"
-    # Pass token via env var to avoid shell-interpolation injection in Python source.
-    # json.dumps handles quoting/escaping so the result is valid YAML.
     POKE_TOKEN="$POKE_TOKEN" python3 - <<'PYEOF'
 import os, re, json
 token = os.environ['POKE_TOKEN']
@@ -150,9 +196,6 @@ PYEOF
 fi
 
 # 4. MCP_API_KEY — generate once and persist to .env
-#    Regenerate when: .env is missing, contains the placeholder, or has an
-#    empty assignment (MCP_API_KEY=) which would still fail at the :? check.
-#    Anchored to non-commented, line-start assignments only.
 if [ ! -f .env ] \
    || grep -Eq '^[[:space:]]*MCP_API_KEY=your-secret-key-here' .env 2>/dev/null \
    || ! grep -Eq '^[[:space:]]*MCP_API_KEY=.+' .env 2>/dev/null; then
@@ -162,7 +205,6 @@ alphabet = string.ascii_letters + string.digits
 print(''.join(secrets.choice(alphabet) for _ in range(48)))
 ")
   if [ -f .env ]; then
-    # Anchor to line-start with MULTILINE so only the actual assignment is updated.
     RANDOM_KEY="$RANDOM_KEY" python3 - <<'PYEOF'
 import os, re
 new_key = os.environ['RANDOM_KEY']
@@ -189,14 +231,11 @@ if [ -f .env ]; then
 fi
 
 # ── Tunnel-mode detection ─────────────────────────────────────────────────────
-# When POKE_TUNNEL=1 the poke tunnel handles auth — MCP_API_KEY is optional.
-# In all other modes (direct HTTP, Docker, etc.) it is required.
-POKE_TUNNEL="${POKE_TUNNEL:-1}"  # default to tunnel mode since start.sh always tunnels
+POKE_TUNNEL="${POKE_TUNNEL:-1}"
 
 if [ "${POKE_TUNNEL}" != "1" ]; then
   : "${MCP_API_KEY:?MCP_API_KEY is not set — add it to .env or export it}"
 else
-  # In tunnel mode warn when the key is absent but don't abort.
   if [ -z "${MCP_API_KEY:-}" ]; then
     echo "  ℹ  MCP_API_KEY not set — server runs unauthenticated (safe: poke tunnel handles auth)."
   fi
@@ -209,10 +248,8 @@ python3 src/server.py &
 SERVER_PID=$!
 trap "kill $SERVER_PID 2>/dev/null" EXIT
 
-# Wait for server to be ready
 sleep 2
 
-# Tunnel to Poke — prefer the globally-installed poke binary; fall back to npx.
 echo "Starting tunnel to Poke..."
 if command -v poke &>/dev/null; then
   poke tunnel http://localhost:3000/mcp --name "poke-mail"

@@ -6,7 +6,9 @@ cd "$(dirname "$0")"
 # ── OTA update ────────────────────────────────────────────────────────────────
 # Pull latest changes from remote with a short timeout so we don't hang offline.
 # If requirements.txt changed, reinstall dependencies afterwards.
-if git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
+if ! command -v git &>/dev/null; then
+  echo "  ℹ  git not found — skipping update check."
+elif git rev-parse --is-inside-work-tree &>/dev/null 2>&1; then
   echo "Checking for updates..."
   REQS_BEFORE=$(git rev-parse HEAD:requirements.txt 2>/dev/null || echo "")
 

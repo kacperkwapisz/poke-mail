@@ -7,39 +7,51 @@ cd "$(dirname "$0")"
 # Uses curl + Python stdlib tarfile — no git or unzip required.
 #
 # Flow:
-#   1. Fetch latest commit SHA from GitHub API (tiny JSON, ~1 KB, 5 s timeout).
-#   2. Compare against .poke_version (last installed SHA). Skip if already
-#      up to date or if the remote is unreachable.
-#   3. Download the repo tarball only when an update exists (30 s timeout).
+#   1. Fetch latest GitHub Release tag via API (tiny JSON, 5 s timeout).
+#   2. Compare against .poke_version (last installed version tag). Skip if
+#      already up to date or if the remote is unreachable.
+#   3. Download the release tarball only when an update exists (30 s timeout).
 #   4. Extract with Python tarfile, stripping the GitHub top-level prefix and
 #      skipping protected local files (.env, config.yml, .venv).
-#   5. Persist new SHA to .poke_version and reinstall deps if requirements.txt
-#      changed.
+#   5. Persist new version tag to .poke_version and reinstall deps if
+#      requirements.txt changed.
 
 if command -v curl &>/dev/null && command -v python3 &>/dev/null; then
   _OTA_REPO="kacperkwapisz/poke-mail"
-  _OTA_BRANCH="main"
   _VERSION_FILE=".poke_version"
 
   echo "Checking for updates..."
 
-  # Step 1: lightweight SHA check (fail silently if offline)
-  _REMOTE_SHA=$(curl -sf --max-time 5 \
-    "https://api.github.com/repos/${_OTA_REPO}/commits/${_OTA_BRANCH}" \
-    | python3 -c \
-        "import json,sys; print(json.load(sys.stdin)['sha'])" \
+  # Step 1: fetch latest release tag and tarball URL (fail silently if offline)
+  _RELEASE_JSON=$(curl -sf --max-time 5 \
+    "https://api.github.com/repos/${_OTA_REPO}/releases/latest" \
     2>/dev/null || echo "")
 
-  _LOCAL_SHA=$(cat "$_VERSION_FILE" 2>/dev/null || echo "")
+  _REMOTE_TAG=""
+  _TARBALL_URL=""
+  if [ -n "$_RELEASE_JSON" ]; then
+    _REMOTE_TAG=$(echo "$_RELEASE_JSON" | python3 -c \
+      "import json,sys; print(json.load(sys.stdin).get('tag_name',''))" \
+      2>/dev/null || echo "")
+    _TARBALL_URL=$(echo "$_RELEASE_JSON" | python3 -c \
+      "import json,sys; print(json.load(sys.stdin).get('tarball_url',''))" \
+      2>/dev/null || echo "")
+  fi
 
-  if [ -z "$_REMOTE_SHA" ]; then
+  _LOCAL_TAG=$(cat "$_VERSION_FILE" 2>/dev/null || echo "")
+
+  if [ -z "$_REMOTE_TAG" ]; then
     echo "  ℹ  Could not reach remote — continuing with local version."
     echo ""
-  elif [ "$_REMOTE_SHA" = "$_LOCAL_SHA" ]; then
-    echo "  ✓ Already up to date (${_REMOTE_SHA:0:7})"
+  elif [ "$_REMOTE_TAG" = "$_LOCAL_TAG" ]; then
+    echo "  ✓ Already up to date (${_LOCAL_TAG})"
     echo ""
   else
-    echo "  ↳ Update found (${_LOCAL_SHA:0:7:-} → ${_REMOTE_SHA:0:7}), downloading..."
+    if [ -n "$_LOCAL_TAG" ]; then
+      echo "  ↳ Update found (${_LOCAL_TAG} → ${_REMOTE_TAG}), downloading..."
+    else
+      echo "  ↳ Update found (${_REMOTE_TAG}), downloading..."
+    fi
 
     # Hash requirements.txt before extraction so we can detect changes
     _REQS_BEFORE=$(python3 -c \
@@ -49,7 +61,7 @@ if command -v curl &>/dev/null && command -v python3 &>/dev/null; then
     _TMP_TAR=$(mktemp /tmp/poke-mail-update.XXXXXX.tar.gz)
 
     if curl -sfL --max-time 30 \
-         "https://api.github.com/repos/${_OTA_REPO}/tarball/${_OTA_BRANCH}" \
+         "$_TARBALL_URL" \
          -o "$_TMP_TAR" 2>/dev/null; then
 
       # Extract with Python: strip GitHub's top-level dir, skip protected paths
@@ -86,9 +98,9 @@ except Exception as e:
     sys.exit(1)
 PYEOF
 
-      # Persist new SHA so we don't re-download next run
-      echo "$_REMOTE_SHA" > "$_VERSION_FILE"
-      echo "  ✓ Updated to ${_REMOTE_SHA:0:7}"
+      # Persist new version tag so we don't re-download next run
+      echo "$_REMOTE_TAG" > "$_VERSION_FILE"
+      echo "  ✓ Updated to ${_REMOTE_TAG}"
 
       # Reinstall deps if requirements.txt changed
       _REQS_AFTER=$(python3 -c \

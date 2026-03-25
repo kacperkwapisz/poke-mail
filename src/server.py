@@ -194,7 +194,8 @@ def parse_accounts(config: dict) -> list[dict]:
                     os.environ.get("SMTP_USERNAME", os.environ["IMAP_USERNAME"]),
                 ),
                 "watch_folders": ["INBOX"],
-                "mark_as_read": os.environ.get("MARK_AS_READ", "false").lower() == "true",
+                "mark_as_read": os.environ.get("MARK_AS_READ", "false").lower()
+                == "true",
             }
         ]
 

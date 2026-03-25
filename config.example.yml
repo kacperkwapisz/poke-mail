@@ -11,6 +11,10 @@ poke_api_key: "your-api-key-here"
 # Agents can still use create_draft. Override per account with allow_send.
 allow_send: true
 
+# Mark forwarded emails as read — set to true to mark emails as read after
+# forwarding to Poke. Defaults to false. Override per account with mark_as_read.
+mark_as_read: false
+
 accounts:
   # iCloud Mail — login is @icloud.com, send as your custom domain
   # Generate an App-Specific Password: https://support.apple.com/en-us/102654
@@ -24,6 +28,7 @@ accounts:
     from_address: "you@yourdomain.com"  # Override From: header (login is @icloud.com but send as custom domain)
     watch_folders:
       - INBOX
+    # mark_as_read: false  # Keep emails unread after forwarding
 
   # Custom SMTP server — SMTP falls back to IMAP credentials if not specified
   # - id: work

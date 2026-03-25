@@ -194,10 +194,13 @@ def parse_accounts(config: dict) -> list[dict]:
                     os.environ.get("SMTP_USERNAME", os.environ["IMAP_USERNAME"]),
                 ),
                 "watch_folders": ["INBOX"],
+                "mark_as_read": os.environ.get("MARK_AS_READ", "false").lower()
+                == "true",
             }
         ]
 
     global_allow_send = config.get("allow_send", True)
+    global_mark_as_read = config.get("mark_as_read", False)
     required = ("imap_host", "imap_username", "imap_password")
     for i, acc in enumerate(accounts):
         acc.setdefault("id", f"account-{i}")
@@ -210,6 +213,7 @@ def parse_accounts(config: dict) -> list[dict]:
         acc.setdefault("smtp_password", acc.get("imap_password"))
         acc.setdefault("from_address", acc.get("smtp_username"))
         acc.setdefault("allow_send", global_allow_send)
+        acc.setdefault("mark_as_read", global_mark_as_read)
         for field in required:
             if field not in acc:
                 raise RuntimeError(
@@ -491,7 +495,8 @@ async def watch_folder(
                     email_data = parse_email_message(raw)
                     await forward_to_poke(email_data, account, webhook_url, api_key)
 
-                await asyncio.to_thread(client.set_flags, new_uids, [b"\\Seen"])
+                if account.get("mark_as_read", False):
+                    await asyncio.to_thread(client.set_flags, new_uids, [b"\\Seen"])
                 existing_unseen.update(new_uids)
 
         except asyncio.CancelledError:
@@ -535,7 +540,8 @@ async def _poll_folder(
                         continue
                     email_data = parse_email_message(raw)
                     await forward_to_poke(email_data, account, webhook_url, api_key)
-                await asyncio.to_thread(client.set_flags, uids, [b"\\Seen"])
+                if account.get("mark_as_read", False):
+                    await asyncio.to_thread(client.set_flags, uids, [b"\\Seen"])
         except Exception as e:
             logger.warning("[%s/%s] Poll error: %s", account["id"], folder, e)
             raise  # reconnect via outer loop

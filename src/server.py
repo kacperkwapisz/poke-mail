@@ -441,7 +441,11 @@ async def watch_folder(
         client = None
         try:
             client = await asyncio.to_thread(get_imap_client, account)
-            await asyncio.to_thread(client.select_folder, folder)
+            await asyncio.to_thread(
+                client.select_folder,
+                folder,
+                readonly=not account.get("mark_as_read", False),
+            )
 
             # Check IDLE support
             if not client.has_capability("IDLE"):

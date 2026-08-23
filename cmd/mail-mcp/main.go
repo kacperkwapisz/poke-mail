@@ -78,11 +78,13 @@ func run() error {
 	pool := mailbox.NewPool(cfg, logger)
 	defer pool.Close()
 
+	apiKey := strings.TrimSpace(os.Getenv("MCP_API_KEY"))
+
 	srv := mcp.NewServer(
 		&mcp.Implementation{Name: "mail-mcp", Version: version, Title: "Mail"},
 		&mcp.ServerOptions{Instructions: tools.Instructions, Logger: logger},
 	)
-	tools.New(cfg, pool, logger, version).Register(srv)
+	tools.New(cfg, pool, logger, version, apiKey).Register(srv)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
@@ -92,16 +94,15 @@ func run() error {
 		logger.Info("serving on stdio", "version", version)
 		return srv.Run(ctx, &mcp.StdioTransport{})
 	case "http":
-		return serveHTTP(ctx, srv, logger, *addr, *trustProxy)
+		return serveHTTP(ctx, srv, cfg, logger, *addr, *trustProxy, apiKey)
 	default:
 		return fmt.Errorf("unknown transport %q: use http or stdio", *transport)
 	}
 }
 
-func serveHTTP(ctx context.Context, srv *mcp.Server, logger *slog.Logger, addr string, trustProxy bool) error {
+func serveHTTP(ctx context.Context, srv *mcp.Server, cfg *config.Config, logger *slog.Logger, addr string, trustProxy bool, apiKey string) error {
 	// No token, no server. This process can read and send a person's mail;
 	// starting it open to the network would be indefensible.
-	apiKey := strings.TrimSpace(os.Getenv("MCP_API_KEY"))
 	if apiKey == "" {
 		return errors.New("MCP_API_KEY is not set. The HTTP transport requires a bearer token — " +
 			"generate one with `openssl rand -hex 32`, or use --transport stdio for local-only use")
@@ -110,29 +111,21 @@ func serveHTTP(ctx context.Context, srv *mcp.Server, logger *slog.Logger, addr s
 		return errors.New("MCP_API_KEY is too short; use at least 16 characters (`openssl rand -hex 32`)")
 	}
 
-	handler := mcp.NewStreamableHTTPHandler(
+	mcpHandler := mcp.NewStreamableHTTPHandler(
 		func(*http.Request) *mcp.Server { return srv },
 		&mcp.StreamableHTTPOptions{Logger: logger, Stateless: true},
 	)
-
-	limiter := httpx.NewRateLimiter(
+	attachments := httpx.AttachmentHandler(apiKey, cfg.Limits.AttachmentDir, logger)
+	handler := httpx.Handler(
+		apiKey, logger, trustProxy,
 		envInt("RATE_LIMIT_GET_RPM", 60),
 		envInt("RATE_LIMIT_POST_RPM", 240),
-		trustProxy,
+		mcpHandler, attachments,
 	)
-
-	// Outermost first: unknown paths die before anything else runs, and
-	// authentication happens before rate-limit state is touched.
-	var wrapped http.Handler = handler
-	wrapped = httpx.RequireBearer(apiKey, logger, wrapped)
-	wrapped = limiter.Middleware(wrapped)
-	wrapped = httpx.SecurityHeaders(wrapped)
-	wrapped = httpx.LogRequests(logger, wrapped)
-	wrapped = httpx.OnlyPath(mcpPath, wrapped)
 
 	httpServer := &http.Server{
 		Addr:              addr,
-		Handler:           wrapped,
+		Handler:           handler,
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       120 * time.Second,
 		ErrorLog:          slog.NewLogLogger(logger.Handler(), slog.LevelDebug),
@@ -140,7 +133,7 @@ func serveHTTP(ctx context.Context, srv *mcp.Server, logger *slog.Logger, addr s
 
 	serveErr := make(chan error, 1)
 	go func() {
-		logger.Info("listening", "addr", addr, "path", mcpPath, "version", version)
+		logger.Info("listening", "addr", addr, "path", mcpPath, "attachments", httpx.DownloadPrefix, "version", version)
 		if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serveErr <- err
 			return

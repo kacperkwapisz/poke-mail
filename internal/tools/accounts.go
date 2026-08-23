@@ -44,6 +44,7 @@ type serverInfoOutput struct {
 	MaxSearchResults   int      `json:"max_search_results" jsonschema:"largest page size search_emails will return"`
 	MaxAttachmentBytes int64    `json:"max_attachment_bytes" jsonschema:"largest attachment get_attachment will download"`
 	AttachmentDir      string   `json:"attachment_dir" jsonschema:"default directory get_attachment writes into"`
+	PublicURL          string   `json:"public_url,omitempty" jsonschema:"origin used to mint download_url on get_attachment; empty when downloads are unavailable"`
 }
 
 func (s *Server) registerAccounts(srv *mcp.Server) {
@@ -132,5 +133,6 @@ func (s *Server) serverInfo(_ context.Context, _ *mcp.CallToolRequest, _ struct{
 		MaxSearchResults:   s.cfg.Limits.MaxSearchResults,
 		MaxAttachmentBytes: s.cfg.Limits.MaxAttachmentBytes,
 		AttachmentDir:      s.cfg.Limits.AttachmentDir,
+		PublicURL:          s.cfg.PublicURL,
 	}, nil
 }

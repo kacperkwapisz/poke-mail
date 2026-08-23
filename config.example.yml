@@ -21,6 +21,11 @@ allow_send: false
 # moves messages to Trash and still requires confirm: true on every call.
 allow_delete: false
 
+# Absolute origin used to mint get_attachment download URLs. Required for
+# remote agents: file_path is on this host, so they fetch download_url with
+# curl instead. Leave empty for stdio. Links expire after 15 minutes.
+# public_url: https://mail-mcp.example.com
+
 # ---------------------------------------------------------------------------
 # Limits — bound what a single tool call can cost
 # ---------------------------------------------------------------------------

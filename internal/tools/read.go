@@ -11,6 +11,7 @@ import (
 	imap "github.com/emersion/go-imap/v2"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/kacperkwapisz/mail-mcp/internal/httpx"
 	"github.com/kacperkwapisz/mail-mcp/internal/mailbox"
 	"github.com/kacperkwapisz/mail-mcp/internal/mailmime"
 )
@@ -68,12 +69,14 @@ type getAttachmentInput struct {
 }
 
 type getAttachmentOutput struct {
-	Summary     string `json:"summary" jsonschema:"one-line description of the result"`
-	FilePath    string `json:"file_path" jsonschema:"absolute path of the written file; pass this to a local file-reading tool"`
-	Filename    string `json:"filename" jsonschema:"sanitized filename on disk"`
-	ContentType string `json:"content_type" jsonschema:"MIME type of the attachment"`
-	SizeBytes   int    `json:"size_bytes" jsonschema:"size of the written file"`
-	PartID      string `json:"part_id" jsonschema:"part id that was matched"`
+	Summary         string `json:"summary" jsonschema:"one-line description of the result"`
+	FilePath        string `json:"file_path" jsonschema:"absolute path of the written file on the server; not usable from a remote agent"`
+	DownloadURL     string `json:"download_url,omitempty" jsonschema:"HTTP URL that serves this file for 15 minutes; curl it onto the agent's machine. Empty on stdio or when public_url is unset"`
+	DownloadExpires string `json:"download_expires_at,omitempty" jsonschema:"RFC 3339 expiry of download_url"`
+	Filename        string `json:"filename" jsonschema:"sanitized filename on disk"`
+	ContentType     string `json:"content_type" jsonschema:"MIME type of the attachment"`
+	SizeBytes       int    `json:"size_bytes" jsonschema:"size of the written file"`
+	PartID          string `json:"part_id" jsonschema:"part id that was matched"`
 }
 
 func (s *Server) registerRead(srv *mcp.Server) {
@@ -97,9 +100,9 @@ func (s *Server) registerRead(srv *mcp.Server) {
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:  "get_attachment",
 		Title: "Download an attachment",
-		Description: "Write one attachment to a file on disk and return its path. The bytes are deliberately kept out of the response " +
-			"so a large file cannot flood the context; open the returned path with a local file tool instead. " +
-			"Select the attachment by part_id (preferred) or filename, both from read_email.",
+		Description: "Write one attachment to a file on the server. Bytes stay out of the response so a large file cannot flood the " +
+			"context. Returns file_path (server-local) and, on HTTP with public_url set, a download_url the agent can curl onto " +
+			"its own machine. The link expires in 15 minutes. Select by part_id (preferred) or filename, both from read_email.",
 		Annotations: writeTool(),
 	}, s.getAttachment)
 }
@@ -269,14 +272,34 @@ func (s *Server) getAttachment(ctx context.Context, _ *mcp.CallToolRequest, in g
 		abs = path
 	}
 
-	return nil, getAttachmentOutput{
+	out := getAttachmentOutput{
 		Summary:     fmt.Sprintf("saved %s (%d bytes) to %s", safeName, len(extracted.Content), abs),
 		FilePath:    abs,
-		Filename:    safeName,
+		Filename:    diskName,
 		ContentType: extracted.ContentType,
 		SizeBytes:   len(extracted.Content),
 		PartID:      extracted.PartID,
-	}, nil
+	}
+	if url, exp, ok := s.mintDownload(diskName, abs); ok {
+		out.DownloadURL = url
+		out.DownloadExpires = exp.Format(time.RFC3339)
+		out.Summary += "; fetch download_url onto this machine before it expires"
+	}
+	return nil, out, nil
+}
+
+func (s *Server) mintDownload(diskName, absPath string) (string, time.Time, bool) {
+	if s.cfg.PublicURL == "" || s.downloadSecret == "" {
+		return "", time.Time{}, false
+	}
+	// The HTTP handler only serves the configured attachment dir. A custom
+	// output_dir is for local use; minting a URL that 404s would be a lie.
+	configured, err := filepath.Abs(s.cfg.Limits.AttachmentDir)
+	if err != nil || filepath.Dir(absPath) != configured {
+		return "", time.Time{}, false
+	}
+	token, exp := httpx.SignDownload(s.downloadSecret, diskName, time.Now())
+	return httpx.DownloadURL(s.cfg.PublicURL, token, diskName), exp, true
 }
 
 // ---- helpers ---------------------------------------------------------------

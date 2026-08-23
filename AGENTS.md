@@ -56,9 +56,9 @@ Do not skip vet or tests for code changes.
 | `internal/mailbox` | IMAP connection pool and operations |
 | `internal/send` | SMTP composition, delivery, validation |
 | `internal/tools` | MCP tool definitions and handlers |
-| `internal/httpx` | Bearer auth, rate limiting, route filtering, security headers |
+| `internal/httpx` | Bearer auth, rate limiting, route filtering, security headers, signed attachment downloads |
 
-Keep the layering one-directional: `tools` depends on `mailbox`/`send`/`config`, never the reverse.
+Keep the layering one-directional: `tools` depends on `mailbox`/`send`/`config`/`httpx`, never the reverse. `httpx` must not import `tools`.
 
 ## Invariants — Do Not Break These
 
@@ -80,7 +80,7 @@ A `message_id` encodes account + mailbox + UIDVALIDITY + UID. Consequences:
 
 ### Attachment bytes stay out of responses
 
-`read_email` returns metadata only. `get_attachment` writes to disk and returns a path. Do not add an option that inlines attachment content into a tool result.
+`read_email` returns metadata only. `get_attachment` writes to disk and returns `file_path` plus, when `public_url` is set, a 15-minute HMAC `download_url`. Do not add an option that inlines attachment content into a tool result. The download token is HMAC-SHA256 of expiry+filename keyed with `MCP_API_KEY`; verification failures are 404, never 401, so scanners learn nothing.
 
 ### Send validation precedes the network
 
@@ -141,4 +141,4 @@ Explain *why*, not *what*. Existing comments justify non-obvious decisions — t
 - Prefer minimal, focused diffs.
 - Do not rename tools without an explicit request — clients cache them.
 - Do not add compatibility shims unless asked. The one exception already present is legacy flat config keys, which exist to carry poke-mail v1 configs across the rename.
-- Adding an env var or config key means updating `config.example.yml`, `.env.example`, `README.md`, and this file together.
+- Adding an env var or config key means updating `config.example.yml`, `.env.example` (env vars only), `README.md`, and this file together.

@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"crypto/hmac"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -31,27 +32,27 @@ func TestVerifyRejectsTampering(t *testing.T) {
 	now := time.Now()
 	token, _ := SignDownload(testSecret, "invoice.pdf", now)
 
-	if err := VerifyDownload(testSecret, token, "other.pdf", now); err != errBadToken {
+	if err := VerifyDownload(testSecret, token, "other.pdf", now); !errors.Is(err, errBadToken) {
 		t.Errorf("wrong filename: %v", err)
 	}
-	if err := VerifyDownload("different-secret-value", token, "invoice.pdf", now); err != errBadToken {
+	if err := VerifyDownload("different-secret-value", token, "invoice.pdf", now); !errors.Is(err, errBadToken) {
 		t.Errorf("wrong secret: %v", err)
 	}
-	if err := VerifyDownload(testSecret, token+"x", "invoice.pdf", now); err != errBadToken {
+	if err := VerifyDownload(testSecret, token+"x", "invoice.pdf", now); !errors.Is(err, errBadToken) {
 		t.Errorf("appended junk: %v", err)
 	}
-	if err := VerifyDownload(testSecret, "not-a-token", "invoice.pdf", now); err != errBadToken {
+	if err := VerifyDownload(testSecret, "not-a-token", "invoice.pdf", now); !errors.Is(err, errBadToken) {
 		t.Errorf("garbage: %v", err)
 	}
-	if err := VerifyDownload(testSecret, "", "invoice.pdf", now); err != errBadToken {
+	if err := VerifyDownload(testSecret, "", "invoice.pdf", now); !errors.Is(err, errBadToken) {
 		t.Errorf("empty: %v", err)
 	}
 
 	expStr, mac, _ := strings.Cut(token, ".")
-	if err := VerifyDownload(testSecret, expStr+".", "invoice.pdf", now); err != errBadToken {
+	if err := VerifyDownload(testSecret, expStr+".", "invoice.pdf", now); !errors.Is(err, errBadToken) {
 		t.Errorf("empty mac: %v", err)
 	}
-	if err := VerifyDownload(testSecret, "."+mac, "invoice.pdf", now); err != errBadToken {
+	if err := VerifyDownload(testSecret, "."+mac, "invoice.pdf", now); !errors.Is(err, errBadToken) {
 		t.Errorf("empty expiry: %v", err)
 	}
 }
@@ -59,7 +60,7 @@ func TestVerifyRejectsTampering(t *testing.T) {
 func TestVerifyRejectsExpired(t *testing.T) {
 	now := time.Now()
 	token, exp := SignDownload(testSecret, "invoice.pdf", now)
-	if err := VerifyDownload(testSecret, token, "invoice.pdf", exp.Add(time.Second)); err != errExpired {
+	if err := VerifyDownload(testSecret, token, "invoice.pdf", exp.Add(time.Second)); !errors.Is(err, errExpired) {
 		t.Errorf("expired token: %v, want errExpired", err)
 	}
 }

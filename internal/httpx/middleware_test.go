@@ -65,16 +65,19 @@ func TestRequireBearerAdvertisesTheScheme(t *testing.T) {
 }
 
 func TestOnlyPath(t *testing.T) {
-	handler := OnlyPath("/mcp", okHandler())
+	handler := OnlyPath(okHandler(), "/mcp", DownloadPrefix)
 
 	cases := map[string]int{
-		"/mcp":         http.StatusOK,
-		"/mcp/":        http.StatusOK,
-		"/mcp/session": http.StatusOK,
-		"/":            http.StatusNotFound,
-		"/health":      http.StatusNotFound,
-		"/.env":        http.StatusNotFound,
-		"/admin":       http.StatusNotFound,
+		"/mcp":           http.StatusOK,
+		"/mcp/":          http.StatusOK,
+		"/mcp/session":   http.StatusOK,
+		"/attachments/":  http.StatusOK,
+		"/attachments/x": http.StatusOK,
+		"/":              http.StatusNotFound,
+		"/health":        http.StatusNotFound,
+		"/.env":          http.StatusNotFound,
+		"/admin":         http.StatusNotFound,
+		"/attachment":    http.StatusNotFound,
 	}
 	for path, want := range cases {
 		rec := httptest.NewRecorder()
@@ -87,7 +90,7 @@ func TestOnlyPath(t *testing.T) {
 
 func TestOnlyPathRevealsNothing(t *testing.T) {
 	rec := httptest.NewRecorder()
-	OnlyPath("/mcp", okHandler()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/admin", nil))
+	OnlyPath(okHandler(), "/mcp").ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/admin", nil))
 	if rec.Body.Len() != 0 {
 		t.Errorf("404 body should be empty, got %q", rec.Body.String())
 	}

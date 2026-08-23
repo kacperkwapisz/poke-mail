@@ -1,7 +1,10 @@
 package tools
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	imap "github.com/emersion/go-imap/v2"
 
@@ -348,6 +351,37 @@ func TestFirstNonEmpty(t *testing.T) {
 	}
 	if got := firstNonEmpty("", "   "); got != "" {
 		t.Errorf("got %q, want empty", got)
+	}
+}
+
+func TestMintDownloadRequiresPublicURLAndSecret(t *testing.T) {
+	dir := t.TempDir()
+	abs := filepath.Join(dir, "a.jpg")
+	s := &Server{
+		cfg:            &config.Config{Limits: config.Limits{AttachmentDir: dir}},
+		downloadSecret: "secret-token-value-long-enough",
+	}
+	if _, _, ok := s.mintDownload("a.jpg", abs); ok {
+		t.Fatal("minted a URL without public_url")
+	}
+	s.cfg.PublicURL = "https://mail.example"
+	s.downloadSecret = ""
+	if _, _, ok := s.mintDownload("a.jpg", abs); ok {
+		t.Fatal("minted a URL without a signing secret")
+	}
+	s.downloadSecret = "secret-token-value-long-enough"
+	url, exp, ok := s.mintDownload("a.jpg", abs)
+	if !ok {
+		t.Fatal("should mint when public_url, secret, and the configured dir all match")
+	}
+	if !strings.HasPrefix(url, "https://mail.example/attachments/") || !strings.HasSuffix(url, "/a.jpg") {
+		t.Errorf("url = %q", url)
+	}
+	if exp.Before(time.Now()) {
+		t.Error("expiry is in the past")
+	}
+	if _, _, ok := s.mintDownload("a.jpg", filepath.Join(t.TempDir(), "a.jpg")); ok {
+		t.Fatal("minted a URL for a file outside the configured attachment dir")
 	}
 }
 

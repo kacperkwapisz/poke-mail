@@ -216,6 +216,7 @@ func TestLoadRejectsInvalidConfigs(t *testing.T) {
 		"bad timeout":       "timeouts: {imap_connect: soon}\naccounts:\n  - id: a\n    imap: {host: h, username: u@e.com, password: p}",
 		"negative timeout":  "timeouts: {imap_connect: -5s}\naccounts:\n  - id: a\n    imap: {host: h, username: u@e.com, password: p}",
 		"from not an email": "accounts:\n  - id: a\n    from_address: notanemail\n    imap: {host: h, username: u@e.com, password: p}",
+		"bad public_url":    "public_url: mail.example\naccounts:\n  - id: a\n    imap: {host: h, username: u@e.com, password: p}",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -223,6 +224,13 @@ func TestLoadRejectsInvalidConfigs(t *testing.T) {
 				t.Errorf("Load accepted an invalid config (%s)", name)
 			}
 		})
+	}
+}
+
+func TestPublicURLNormalized(t *testing.T) {
+	cfg := loadOK(t, "public_url: https://mail.example/\n"+minimal)
+	if cfg.PublicURL != "https://mail.example" {
+		t.Errorf("public_url = %q, want trailing slash stripped", cfg.PublicURL)
 	}
 }
 

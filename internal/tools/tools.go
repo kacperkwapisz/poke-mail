@@ -21,15 +21,17 @@ import (
 
 // Server holds the dependencies shared by every tool handler.
 type Server struct {
-	cfg     *config.Config
-	pool    *mailbox.Pool
-	logger  *slog.Logger
-	version string
+	cfg            *config.Config
+	pool           *mailbox.Pool
+	logger         *slog.Logger
+	version        string
+	downloadSecret string
 }
 
-// New builds a tool server.
-func New(cfg *config.Config, pool *mailbox.Pool, logger *slog.Logger, version string) *Server {
-	return &Server{cfg: cfg, pool: pool, logger: logger, version: version}
+// New builds a tool server. downloadSecret is the HMAC key for attachment
+// download URLs; empty disables minting them (stdio, or HTTP without a token).
+func New(cfg *config.Config, pool *mailbox.Pool, logger *slog.Logger, version, downloadSecret string) *Server {
+	return &Server{cfg: cfg, pool: pool, logger: logger, version: version, downloadSecret: downloadSecret}
 }
 
 // Register attaches every tool to the MCP server.
@@ -71,7 +73,10 @@ instead. Send only what the user approved.
 READING COSTS CONTEXT. search_emails returns metadata only. read_email returns
 one message and omits HTML unless you ask for it. Attachment bytes are never
 inlined — read_email lists attachment metadata, and get_attachment writes a
-chosen file to disk and returns its path.
+chosen file to the server and returns file_path plus, on HTTP, a download_url.
+file_path is on the server, not the agent's machine. Fetch download_url with
+curl (or any HTTP client) to a local path, then open that local file. The
+link expires in 15 minutes; call get_attachment again for a fresh one.
 
 DESTRUCTIVE ACTIONS. Prefer archive_email over delete_email. Deleting requires
 confirm: true, and moves the message to Trash rather than erasing it.`

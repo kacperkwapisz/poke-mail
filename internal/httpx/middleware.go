@@ -48,17 +48,19 @@ func bearerToken(r *http.Request) (string, bool) {
 	return strings.TrimSpace(header[len(prefix):]), true
 }
 
-// OnlyPath returns 404 for every request outside the given prefix.
+// OnlyPath returns 404 for every request outside the given prefixes.
 //
 // An empty body reveals nothing about what is running here, which keeps the
 // endpoint uninteresting to opportunistic scanners.
-func OnlyPath(prefix string, next http.Handler) http.Handler {
+func OnlyPath(next http.Handler, prefixes ...string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, prefix) {
-			w.WriteHeader(http.StatusNotFound)
-			return
+		for _, prefix := range prefixes {
+			if strings.HasPrefix(r.URL.Path, prefix) {
+				next.ServeHTTP(w, r)
+				return
+			}
 		}
-		next.ServeHTTP(w, r)
+		w.WriteHeader(http.StatusNotFound)
 	})
 }
 

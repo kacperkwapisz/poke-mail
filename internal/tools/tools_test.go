@@ -62,7 +62,7 @@ func connect(t *testing.T, cfg *config.Config) *mcp.ClientSession {
 
 	srv := mcp.NewServer(&mcp.Implementation{Name: "mail-mcp", Version: "test"},
 		&mcp.ServerOptions{Instructions: Instructions})
-	New(cfg, pool, logger, "test").Register(srv)
+	New(cfg, pool, logger, "test", "").Register(srv)
 
 	clientTransport, serverTransport := mcp.NewInMemoryTransports()
 	ctx := context.Background()
@@ -492,7 +492,7 @@ func TestInstructionsCoverTheCriticalRules(t *testing.T) {
 		"never concatenate",
 		"approval",
 		"confirm: true",
-		"get_attachment",
+		"get_attachment", "download_url",
 	} {
 		if !strings.Contains(strings.ToLower(Instructions), strings.ToLower(needle)) {
 			t.Errorf("instructions no longer mention %q", needle)

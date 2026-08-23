@@ -119,6 +119,11 @@ type Config struct {
 	RawTimeouts rawTimeouts `yaml:"timeouts"`
 	Accounts    []*Account  `yaml:"accounts"`
 
+	// PublicURL is the absolute origin clients use to fetch attachments
+	// over HTTP. Empty means get_attachment will not mint a download_url
+	// (stdio deployments, or HTTP without a known public hostname).
+	PublicURL string `yaml:"public_url"`
+
 	// IdleConnTTL is how long a pooled IMAP connection may sit unused
 	// before it is closed.
 	IdleConnTTL time.Duration `yaml:"-"`
@@ -160,6 +165,8 @@ func Load(path string) (*Config, error) {
 }
 
 func (c *Config) normalize() error {
+	c.PublicURL = strings.TrimRight(strings.TrimSpace(c.PublicURL), "/")
+
 	if c.Limits.MaxBodyChars <= 0 {
 		c.Limits.MaxBodyChars = DefaultMaxBodyChars
 	}
@@ -294,6 +301,9 @@ func defaultSMTPSecurity(port int) Security {
 }
 
 func (c *Config) validate() error {
+	if c.PublicURL != "" && !strings.HasPrefix(c.PublicURL, "http://") && !strings.HasPrefix(c.PublicURL, "https://") {
+		return fmt.Errorf("public_url must be an absolute http(s) URL, got %q", c.PublicURL)
+	}
 	if len(c.Accounts) == 0 {
 		return fmt.Errorf("no accounts configured")
 	}

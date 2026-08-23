@@ -113,7 +113,7 @@ For a client on the same machine, stdio skips the network entirely and needs no 
 | ---------------- | ------------------------------------------------------------------------ |
 | `search_emails`  | Search by sender, recipient, subject, body, date, or flags. Paginated.    |
 | `read_email`     | One message: headers, body, attachment metadata. HTML opt-in.             |
-| `get_attachment` | Write one attachment to disk, return the path.                            |
+| `get_attachment` | Write one attachment to disk. Returns `file_path` and, on HTTP, a 15-minute `download_url`. |
 
 **Sending**
 
@@ -137,7 +137,7 @@ For a client on the same machine, stdio skips the network entirely and needs no 
 
 ## Design decisions
 
-**Attachment bytes never enter the response.** `read_email` returns attachment metadata with a `part_id`; `get_attachment` writes the file to disk and returns a path. A 7 MB PDF base64-encoded into a tool result would blow the context window without accomplishing anything — hand the model a path and let it open the file with a local tool.
+**Attachment bytes never enter the response.** `read_email` returns attachment metadata with a `part_id`; `get_attachment` writes the file to disk and returns `file_path` (on the server) plus, when `public_url` is set, a 15-minute signed `download_url`. A remote agent curls that URL onto its own machine. A 7 MB PDF base64-encoded into a tool result would blow the context window without accomplishing anything.
 
 **Bodies are truncated and HTML is opt-in.** Message HTML is attacker-controlled and enormous. It is sanitized through bluemonday before it is ever returned, and omitted entirely unless `include_html` is set. Messages with no plain-text part get one derived from the HTML, with paragraph breaks preserved.
 
@@ -184,6 +184,7 @@ See [`config.example.yml`](config.example.yml) for the annotated version.
 | `limits.max_search_results`  | `100`          | Largest search page.                                       |
 | `limits.max_attachment_bytes`| `26214400`     | Attachment size ceiling.                                   |
 | `limits.attachment_dir`      | system temp    | Where `get_attachment` writes.                             |
+| `public_url`                 | empty          | Origin used to mint `download_url`. Empty disables it.     |
 | `timeouts.*`                 | see example    | `imap_connect`, `imap_command`, `smtp_connect`, `smtp_send`. |
 | `accounts[].allow_send`      | inherits global| Per-account send gate.                                     |
 | `accounts[].allow_delete`    | inherits global| Per-account delete gate.                                   |
